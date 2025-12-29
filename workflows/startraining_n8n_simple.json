@@ -1,0 +1,359 @@
+{
+  "name": "StarTraining Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "REPLACE_WITH_YOUR_RAW_FOLDER_ID",
+          "mode": "id"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "id": "1-trigger",
+      "name": "1. New File in Drive",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "notes": "Watches your Raw folder for new .docx files"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract monday_date and source_label from filename\n// Expected format: 20250908_semana 1 CICLO 7 startrainingbox.docx\n\nconst fileName = $input.first().json.name;\nconst name = fileName.replace('.docx', '').replace('.odt', '');\n\n// Extract date (first 8 digits)\nconst dateMatch = name.match(/^(\\d{8})_(.+)$/);\nif (!dateMatch) {\n  throw new Error(`Invalid filename format: ${fileName}. Expected: YYYYMMDD_semana X CICLO Y...`);\n}\n\nconst mondayDate = dateMatch[1];\nconst rest = dateMatch[2];\n\n// Extract semana and ciclo\nconst labelMatch = rest.match(/[sS]emana\\s+(\\d+)\\s+[cC]ICLO\\s+(\\d+)/i);\nlet sourceLabel;\n\nif (labelMatch) {\n  sourceLabel = `Semana_${labelMatch[1]}_Ciclo_${labelMatch[2]}`;\n} else {\n  sourceLabel = rest.replace(/\\s+/g, '_');\n}\n\nreturn [{\n  json: {\n    fileName: fileName,\n    fileId: $input.first().json.id,\n    mondayDate: mondayDate,\n    sourceLabel: sourceLabel\n  }\n}];"
+      },
+      "id": "2-extract",
+      "name": "2. Extract Info from Filename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "notes": "Parses the filename to get date and week label"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_YOUR_WEBHOOK_URL/run-single",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_name\": \"{{ $json.fileName }}\"\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "3-pipeline",
+      "name": "3. Run Python Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "notes": "Calls your webhook_server.py to run Agents A→B→C→D"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "success-check",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4-check",
+      "name": "4. Pipeline Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 300],
+      "notes": "Checks if the Python pipeline ran successfully"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.canva.com/rest/v1/autofills",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"brand_template_id\": \"REPLACE_WITH_YOUR_CANVA_TEMPLATE_ID\",\n  \"data\": {\n    \"date\": { \"type\": \"text\", \"text\": \"{{ $('2. Extract Info from Filename').item.json.mondayDate }}\" },\n    \"source\": { \"type\": \"text\", \"text\": \"{{ $('2. Extract Info from Filename').item.json.sourceLabel }}\" }\n  }\n}",
+        "options": {}
+      },
+      "id": "5-canva-create",
+      "name": "5. Create Canva Design",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 200],
+      "notes": "Uses Canva Autofill API to create design from template"
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "6-wait-render",
+      "name": "6. Wait for Render",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1100, 200],
+      "notes": "Gives Canva time to process the design"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.canva.com/rest/v1/designs/{{ $('5. Create Canva Design').item.json.job.result.design.id }}/exports",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"format_type\": \"png\"\n}",
+        "options": {}
+      },
+      "id": "7-canva-export",
+      "name": "7. Export Design",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 200],
+      "notes": "Requests PNG export from Canva"
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "8-wait-export",
+      "name": "8. Wait for Export",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1540, 200],
+      "notes": "Gives Canva time to generate the PNG"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.canva.com/rest/v1/exports/{{ $('7. Export Design').item.json.job.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
+      },
+      "id": "9-get-url",
+      "name": "9. Get Export URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1760, 200],
+      "notes": "Gets the download URL for the exported PNG"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/REPLACE_WITH_YOUR_PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"recipient_type\": \"individual\",\n  \"to\": \"REPLACE_WITH_RECIPIENT_PHONE\",\n  \"type\": \"image\",\n  \"image\": {\n    \"link\": \"{{ $json.job.result.urls[0] }}\",\n    \"caption\": \"🏋️ StarTraining - {{ $('2. Extract Info from Filename').item.json.sourceLabel.replace(/_/g, ' ') }}\\n\\n📅 Semana del {{ $('2. Extract Info from Filename').item.json.mondayDate }}\\n\\n¡A entrenar! 💪🔥\"\n  }\n}",
+        "options": {}
+      },
+      "id": "10-whatsapp",
+      "name": "10. Send to WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 200],
+      "notes": "Sends the design image via WhatsApp"
+    },
+    {
+      "parameters": {},
+      "id": "success",
+      "name": "✅ Success!",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2200, 200]
+    },
+    {
+      "parameters": {
+        "content": "## ⚠️ Pipeline Failed\n\nThe Python pipeline returned an error.\n\n**Check:**\n1. Is webhook_server.py running?\n2. Is ngrok/your server accessible?\n3. Check the pipeline logs",
+        "height": 180,
+        "width": 280
+      },
+      "id": "error-note",
+      "name": "Error Info",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [880, 400]
+    },
+    {
+      "parameters": {},
+      "id": "error-handler",
+      "name": "❌ Pipeline Failed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1100, 420]
+    }
+  ],
+  "connections": {
+    "1. New File in Drive": {
+      "main": [
+        [
+          {
+            "node": "2. Extract Info from Filename",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Extract Info from Filename": {
+      "main": [
+        [
+          {
+            "node": "3. Run Python Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Run Python Pipeline": {
+      "main": [
+        [
+          {
+            "node": "4. Pipeline Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Pipeline Success?": {
+      "main": [
+        [
+          {
+            "node": "5. Create Canva Design",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Pipeline Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Create Canva Design": {
+      "main": [
+        [
+          {
+            "node": "6. Wait for Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Wait for Render": {
+      "main": [
+        [
+          {
+            "node": "7. Export Design",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Export Design": {
+      "main": [
+        [
+          {
+            "node": "8. Wait for Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Wait for Export": {
+      "main": [
+        [
+          {
+            "node": "9. Get Export URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Get Export URL": {
+      "main": [
+        [
+          {
+            "node": "10. Send to WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10. Send to WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "✅ Success!",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "StarTraining"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-26T17:30:00.000Z",
+  "versionId": "3"
+}

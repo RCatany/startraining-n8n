@@ -1,7 +1,7 @@
 ============================================================
 STARTRAINING N8N AUTOMATION - PROJECT STATUS
 ============================================================
-Date: December 28, 2025
+Date: December 29, 2025 (Updated)
 ============================================================
 
 GOAL
@@ -37,7 +37,7 @@ Keep n8n and Python pipeline SEPARATE:
 ├── startraining-ai-pipeline/    ← Python scripts (your repo)
 │   ├── agents/
 │   │   ├── agentA.py
-│   │   ├── agentB.py
+│   │   ├── agentB.py            ← Fixed: buffered CSV writing
 │   │   ├── agentC.py
 │   │   └── agentD.py
 │   ├── webhook_server.py
@@ -58,13 +58,6 @@ Keep n8n and Python pipeline SEPARATE:
         ├── AgentC/              ← AgentC output (pivoted)
         └── AgentD/              ← AgentD output (for Canva)
 
-WHY SEPARATE?
-- Different purposes: Python = business logic, n8n = orchestration
-- Cleaner git: startraining repo stays focused
-- Easier backups: n8n data backed up independently
-- Docker best practice: container data outside project repos
-- Communication via HTTP: n8n calls localhost:5001, no shared files needed
-
 ============================================================
 
 COMPLETED ✅
@@ -79,43 +72,50 @@ COMPLETED ✅
 [✅] n8n running locally (http://localhost:5678)
 [✅] Webhook server running on port 5001
 [✅] n8n workflow imported (StarTraining Pipeline)
+[✅] Redirect URI added to Google Cloud Console
+[✅] Node 1: Google Drive trigger connected (folder: 1ggqu326-4x_YghpkjTsrg9_AVKpr92Qt)
+[✅] Node 3: Webhook URL configured (http://host.docker.internal:5001/run-single)
+[✅] Pipeline test run successful (fixed agentB.py timeout issue)
+[✅] Canva Developer App created
+[✅] Canva Client ID and Client Secret obtained
 
 ============================================================
 
 IN PROGRESS 🔄
 --------------
-[🔄] Configure Google Drive trigger in n8n
-     → Need to add localhost redirect URI to Google Cloud
-     → Then connect and select Raw folder
+[🔄] Node 5: Canva OAuth connection
+     → Getting "Unauthorized" error
+     → Need to complete Canva app setup (see NEXT STEP below)
 
 ============================================================
 
 TODO ❌
 -------
-[❌] Node 1: Connect Google Drive & select Raw folder
-[❌] Node 3: Update webhook URL to http://localhost:5001/run-single
-[❌] Node 5: Set up Canva OAuth credentials
-[❌] Node 5: Add your Canva template ID
+[❌] Node 5: Complete Canva OAuth connection
+[❌] Node 5: Get Canva template ID for workout design
 [❌] Node 10: Set up WhatsApp credentials
-[❌] Node 10: Add your phone number
-[❌] Test the complete workflow
+[❌] Node 10: Add recipient phone number
+[❌] Test complete workflow end-to-end
 [❌] (Optional) Set up ngrok for external access
 
 ============================================================
 
-CREDENTIALS NEEDED
+CREDENTIALS STATUS
 ------------------
 
-1. GOOGLE DRIVE (in progress)
+1. GOOGLE DRIVE ✅ CONNECTED
    - Client ID: 947653681876-b288b3b0m2ang0ucdlkrtqdjt2447sgi.apps.googleusercontent.com
    - Client Secret: [saved in n8n]
    - Redirect URI: http://localhost:5678/rest/oauth2-credential/callback
 
-2. CANVA (not started)
-   - Get from: https://www.canva.dev
-   - Need: Client ID, Client Secret
-   - Template ID for your workout design
-   - OAuth scopes: design:content:read design:content:write brandtemplate:content:read
+2. CANVA 🔄 IN PROGRESS
+   - App created at: https://www.canva.dev
+   - Client ID: [saved - you have it]
+   - Client Secret: [saved - you have it]
+   - Redirect URI: http://127.0.0.1:5678/rest/oauth2-credential/callback
+   - Required scopes: design:content:read design:content:write asset:read brandtemplate:content:read
+
+   ISSUE: Getting "Unauthorized" error when connecting
 
 3. WHATSAPP (not started)
    - Get from: https://developers.facebook.com
@@ -136,7 +136,7 @@ Stop n8n:
   docker stop n8n
 
 Start webhook server:
-  cd ~/startraining-ai-pipeline
+  cd ~/GitHub/startraining-ai-pipeline
   source .venv/bin/activate
   PORT=5001 python webhook_server.py
 
@@ -155,12 +155,46 @@ Meta Developers:     https://developers.facebook.com
 
 ============================================================
 
-NEXT STEP
----------
-1. Go to Google Cloud Console → APIs & Services → Credentials
-2. Click your OAuth 2.0 Client ID
-3. Add redirect URI: http://localhost:5678/rest/oauth2-credential/callback
-4. Save
-5. Go back to n8n and connect Google Drive in Node 1
+NEXT STEP - FIX CANVA OAUTH
+---------------------------
+
+The Canva OAuth is returning "Unauthorized". To fix:
+
+1. Go to Canva Developer Portal: https://www.canva.dev
+   → Your Apps → Select your app
+
+2. CHECK TEST USERS (Required for development apps!)
+   → Go to "Test users" section
+   → Add your Canva account email as a test user
+   → This is REQUIRED before you can authenticate
+
+3. VERIFY REDIRECT URI (must match exactly)
+   → Settings → Authentication → Redirect URLs
+   → Must be: http://127.0.0.1:5678/rest/oauth2-credential/callback
+   → No trailing slash, must use 127.0.0.1 (not localhost)
+
+4. VERIFY SCOPES ARE ENABLED
+   → Settings → Scopes
+   → Enable: design:content:read, design:content:write,
+             asset:read, brandtemplate:content:read
+
+5. IN N8N - USE PKCE GRANT TYPE
+   → Credentials → Edit Canva credential
+   → Change "Grant Type" to "PKCE" (not "Authorization Code")
+   → Authorization URL: https://www.canva.com/api/oauth/authorize
+   → Access Token URL: https://api.canva.com/rest/v1/oauth/token
+   → Authentication: Body
+
+6. Click "Connect my account" and try again
+
+============================================================
+
+BUG FIXES APPLIED
+-----------------
+
+agentB.py - Fixed Google Drive sync timeout
+  - Problem: Writing CSV row-by-row caused timeout with Google Drive sync
+  - Solution: Buffer all rows in memory, write once at end
+  - File: ~/GitHub/startraining-ai-pipeline/agents/agentB.py
 
 ============================================================
