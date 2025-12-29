@@ -1,0 +1,166 @@
+============================================================
+STARTRAINING N8N AUTOMATION - PROJECT STATUS
+============================================================
+Date: December 28, 2025
+============================================================
+
+GOAL
+----
+Automate the StarTraining workout publishing pipeline:
+1. Detect new Word file uploaded to Google Drive
+2. Run Python pipeline (Agents A→B→C→D) to extract & format workout data
+3. Create Canva design from template using the CSV data
+4. Send the design image via WhatsApp
+
+============================================================
+
+WORKFLOW OVERVIEW
+-----------------
+Node 1:  Google Drive Trigger    → Watch for new .docx files
+Node 2:  Code                    → Extract date & label from filename
+Node 3:  HTTP Request            → Call webhook_server.py to run pipeline
+Node 4:  IF                      → Check if pipeline succeeded
+Node 5:  HTTP Request            → Canva: Create design from template
+Node 6:  Wait                    → Wait for Canva to render
+Node 7:  HTTP Request            → Canva: Export design as PNG
+Node 8:  Wait                    → Wait for export
+Node 9:  HTTP Request            → Canva: Get export URL
+Node 10: HTTP Request            → WhatsApp: Send image
+
+============================================================
+
+DIRECTORY STRUCTURE
+-------------------
+Keep n8n and Python pipeline SEPARATE:
+
+~/
+├── startraining-ai-pipeline/    ← Python scripts (your repo)
+│   ├── agents/
+│   │   ├── agentA.py
+│   │   ├── agentB.py
+│   │   ├── agentC.py
+│   │   └── agentD.py
+│   ├── webhook_server.py
+│   ├── run_pipeline.py
+│   ├── run_all_pipeline.py
+│   ├── config.py
+│   └── .env
+│
+├── .n8n/                        ← n8n data (auto-created by Docker)
+│   ├── database.sqlite          ← Workflows, credentials
+│   └── config                   ← n8n settings
+│
+└── Google Drive/
+    └── Blackboard/
+        ├── Raw/                 ← Upload .docx files here
+        ├── AgentA/              ← AgentA output
+        ├── AgentB/              ← AgentB output
+        ├── AgentC/              ← AgentC output (pivoted)
+        └── AgentD/              ← AgentD output (for Canva)
+
+WHY SEPARATE?
+- Different purposes: Python = business logic, n8n = orchestration
+- Cleaner git: startraining repo stays focused
+- Easier backups: n8n data backed up independently
+- Docker best practice: container data outside project repos
+- Communication via HTTP: n8n calls localhost:5001, no shared files needed
+
+============================================================
+
+COMPLETED ✅
+------------
+[✅] Python pipeline working locally (Agents A, B, C, D)
+[✅] Webhook server created (webhook_server.py)
+[✅] Google Cloud project created ("n8n-connector")
+[✅] Google Drive API enabled
+[✅] OAuth 2.0 credentials created (Web application)
+[✅] Test user added to OAuth consent screen
+[✅] Docker installed on Mac
+[✅] n8n running locally (http://localhost:5678)
+[✅] Webhook server running on port 5001
+[✅] n8n workflow imported (StarTraining Pipeline)
+
+============================================================
+
+IN PROGRESS 🔄
+--------------
+[🔄] Configure Google Drive trigger in n8n
+     → Need to add localhost redirect URI to Google Cloud
+     → Then connect and select Raw folder
+
+============================================================
+
+TODO ❌
+-------
+[❌] Node 1: Connect Google Drive & select Raw folder
+[❌] Node 3: Update webhook URL to http://localhost:5001/run-single
+[❌] Node 5: Set up Canva OAuth credentials
+[❌] Node 5: Add your Canva template ID
+[❌] Node 10: Set up WhatsApp credentials
+[❌] Node 10: Add your phone number
+[❌] Test the complete workflow
+[❌] (Optional) Set up ngrok for external access
+
+============================================================
+
+CREDENTIALS NEEDED
+------------------
+
+1. GOOGLE DRIVE (in progress)
+   - Client ID: 947653681876-b288b3b0m2ang0ucdlkrtqdjt2447sgi.apps.googleusercontent.com
+   - Client Secret: [saved in n8n]
+   - Redirect URI: http://localhost:5678/rest/oauth2-credential/callback
+
+2. CANVA (not started)
+   - Get from: https://www.canva.dev
+   - Need: Client ID, Client Secret
+   - Template ID for your workout design
+   - OAuth scopes: design:content:read design:content:write brandtemplate:content:read
+
+3. WHATSAPP (not started)
+   - Get from: https://developers.facebook.com
+   - Need: Phone Number ID
+   - Need: Access Token
+   - Recipient phone number (format: 34612345678)
+
+============================================================
+
+COMMANDS REFERENCE
+------------------
+
+Start n8n (Docker):
+  docker start n8n
+  # Then open http://localhost:5678
+
+Stop n8n:
+  docker stop n8n
+
+Start webhook server:
+  cd ~/startraining-ai-pipeline
+  source .venv/bin/activate
+  PORT=5001 python webhook_server.py
+
+Test webhook:
+  curl http://localhost:5001/health
+
+============================================================
+
+URLS & PATHS
+------------
+n8n Local:           http://localhost:5678
+Webhook Server:      http://localhost:5001
+Google Cloud:        https://console.cloud.google.com
+Canva Developers:    https://www.canva.dev
+Meta Developers:     https://developers.facebook.com
+
+============================================================
+
+NEXT STEP
+---------
+1. Go to Google Cloud Console → APIs & Services → Credentials
+2. Click your OAuth 2.0 Client ID
+3. Add redirect URI: http://localhost:5678/rest/oauth2-credential/callback
+4. Save
+5. Go back to n8n and connect Google Drive in Node 1
+
+============================================================

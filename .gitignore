@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# n8n data (use docker volume instead)
+.n8n/
+
+# IDE
+.vscode/
+.idea/
+
+# Credentials backup (never commit)
+*credentials*.json
+*secrets*
