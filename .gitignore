@@ -15,3 +15,4 @@
 # Credentials backup (never commit)
 *credentials*.json
 *secrets*
+*.rtf

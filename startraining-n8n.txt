@@ -1,7 +1,7 @@
 ============================================================
 STARTRAINING N8N AUTOMATION - PROJECT STATUS
 ============================================================
-Date: December 29, 2025 (Updated)
+Date: January 2, 2026 (Updated)
 ============================================================
 
 GOAL
@@ -69,30 +69,30 @@ COMPLETED ✅
 [✅] OAuth 2.0 credentials created (Web application)
 [✅] Test user added to OAuth consent screen
 [✅] Docker installed on Mac
-[✅] n8n running locally (http://localhost:5678)
+[✅] n8n running locally (http://127.0.0.1:5678)
 [✅] Webhook server running on port 5001
 [✅] n8n workflow imported (StarTraining Pipeline)
 [✅] Redirect URI added to Google Cloud Console
 [✅] Node 1: Google Drive trigger connected (folder: 1ggqu326-4x_YghpkjTsrg9_AVKpr92Qt)
 [✅] Node 3: Webhook URL configured (http://host.docker.internal:5001/run-single)
 [✅] Pipeline test run successful (fixed agentB.py timeout issue)
-[✅] Canva Developer App created
+[✅] Canva Developer Integration created
 [✅] Canva Client ID and Client Secret obtained
+[✅] Canva OAuth connected (PKCE + 127.0.0.1 fix applied)
 
 ============================================================
 
 IN PROGRESS 🔄
 --------------
-[🔄] Node 5: Canva OAuth connection
-     → Getting "Unauthorized" error
-     → Need to complete Canva app setup (see NEXT STEP below)
+[🔄] Node 5: Get Canva template ID for workout design
+     → Need to create/configure template in Canva
+     → Get template ID from URL
 
 ============================================================
 
 TODO ❌
 -------
-[❌] Node 5: Complete Canva OAuth connection
-[❌] Node 5: Get Canva template ID for workout design
+[❌] Node 5: Configure Canva template ID in workflow
 [❌] Node 10: Set up WhatsApp credentials
 [❌] Node 10: Add recipient phone number
 [❌] Test complete workflow end-to-end
@@ -106,16 +106,20 @@ CREDENTIALS STATUS
 1. GOOGLE DRIVE ✅ CONNECTED
    - Client ID: 947653681876-b288b3b0m2ang0ucdlkrtqdjt2447sgi.apps.googleusercontent.com
    - Client Secret: [saved in n8n]
-   - Redirect URI: http://localhost:5678/rest/oauth2-credential/callback
-
-2. CANVA 🔄 IN PROGRESS
-   - App created at: https://www.canva.dev
-   - Client ID: [saved - you have it]
-   - Client Secret: [saved - you have it]
    - Redirect URI: http://127.0.0.1:5678/rest/oauth2-credential/callback
-   - Required scopes: design:content:read design:content:write asset:read brandtemplate:content:read
 
-   ISSUE: Getting "Unauthorized" error when connecting
+2. CANVA ✅ CONNECTED
+   - Integration created at: https://www.canva.dev
+   - Client ID: [saved in n8n]
+   - Client Secret: [saved in n8n]
+   - Redirect URI: http://127.0.0.1:5678/rest/oauth2-credential/callback
+   - Grant Type: PKCE (required by Canva)
+   - Scopes: asset:read design:content:read design:content:write brandtemplate:content:read
+
+   CRITICAL FIX APPLIED:
+   - Must use 127.0.0.1 (not localhost) - Canva rejects localhost
+   - Must restart n8n with: -e WEBHOOK_URL=http://127.0.0.1:5678/
+   - Must use PKCE grant type (not Authorization Code)
 
 3. WHATSAPP (not started)
    - Get from: https://developers.facebook.com
@@ -155,37 +159,29 @@ Meta Developers:     https://developers.facebook.com
 
 ============================================================
 
-NEXT STEP - FIX CANVA OAUTH
----------------------------
+NEXT STEP - GET CANVA TEMPLATE ID
+----------------------------------
 
-The Canva OAuth is returning "Unauthorized". To fix:
+You need a Canva Brand Template ID to autofill workout data.
 
-1. Go to Canva Developer Portal: https://www.canva.dev
-   → Your Apps → Select your app
+1. Open Canva: https://www.canva.com
 
-2. CHECK TEST USERS (Required for development apps!)
-   → Go to "Test users" section
-   → Add your Canva account email as a test user
-   → This is REQUIRED before you can authenticate
+2. Create or open your workout template design
 
-3. VERIFY REDIRECT URI (must match exactly)
-   → Settings → Authentication → Redirect URLs
-   → Must be: http://127.0.0.1:5678/rest/oauth2-credential/callback
-   → No trailing slash, must use 127.0.0.1 (not localhost)
+3. IMPORTANT: Save as Brand Template (requires Canva Pro/Team)
+   → Click "Share" → "More" → "Brand template"
+   → Or: File → Save as brand template
 
-4. VERIFY SCOPES ARE ENABLED
-   → Settings → Scopes
-   → Enable: design:content:read, design:content:write,
-             asset:read, brandtemplate:content:read
+4. Get the Template ID from the URL:
+   https://www.canva.com/design/DAGxxxxxxxx.../edit
+                              ↑↑↑↑↑↑↑↑↑↑↑
+                              This is your template ID
 
-5. IN N8N - USE PKCE GRANT TYPE
-   → Credentials → Edit Canva credential
-   → Change "Grant Type" to "PKCE" (not "Authorization Code")
-   → Authorization URL: https://www.canva.com/api/oauth/authorize
-   → Access Token URL: https://api.canva.com/rest/v1/oauth/token
-   → Authentication: Body
+5. In n8n, update Node 5 (Create Canva Design):
+   → Edit the HTTP Request body
+   → Replace "REPLACE_WITH_YOUR_CANVA_TEMPLATE_ID" with your actual ID
 
-6. Click "Connect my account" and try again
+Example template ID format: DAGcN8QVCgA (alphanumeric string)
 
 ============================================================
 

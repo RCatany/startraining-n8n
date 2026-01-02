@@ -204,35 +204,81 @@ Should return: `{"status": "healthy", "service": "startraining-pipeline"}`
 
 ## Part 4: Set Up Canva API (20 minutes)
 
-### Step 4.1: Create Canva Developer App
+### Step 4.1: Create Canva Developer Integration
 
 1. Go to [Canva Developers](https://www.canva.dev/)
 2. Sign in with your Canva account
 3. Click **Your integrations** → **Create an integration**
 4. Choose **Public** integration type
-5. Name: "startraining_n8n"
+5. Name: "StarTraining n8n"
 6. Description: "Automate workout designs"
+
+> **Note**: You need an **Integration** (not an App). Apps run inside Canva; Integrations connect external services.
 
 ### Step 4.2: Configure Scopes
 
-Add these scopes:
-- `design:content:read`
-- `design:content:write`
-- `design:meta:read`
-- `brandtemplate:content:read`
-- `brandtemplate:meta:read`
-- `asset:read`
-- `asset:write`
+In your integration settings → **Scopes**, enable:
+- `asset:read` ✅
+- `brandtemplate:content:read` ✅
+- `brandtemplate:meta:read` ✅
+- `design:content:read` ✅
+- `design:content:write` ✅
+- `design:permission:read` ✅
+- `design:permission:write` ✅
 
-### Step 4.3: Get OAuth Settings
+### Step 4.3: Get OAuth Credentials
 
-In your integration settings, find:
-- **Client ID**: (copy this)
-- **Client Secret**: (generate and copy this)
+1. In your integration settings, find:
+   - **Client ID**: (copy this)
+   - **Client Secret**: Click **Generate secret** and copy it
 
-Add redirect URL:
-- For n8n Cloud: `https://your-name.app.n8n.cloud/rest/oauth2-credential/callback`
-- For self-hosted: `http://localhost:5678/rest/oauth2-credential/callback`
+2. Add redirect URL in **Authentication** → **Redirect URLs**:
+
+   > **IMPORTANT**: Canva does NOT accept `localhost`. You MUST use `127.0.0.1`
+
+   ```
+   http://127.0.0.1:5678/rest/oauth2-credential/callback
+   ```
+
+   For n8n Cloud: `https://your-name.app.n8n.cloud/rest/oauth2-credential/callback`
+
+### Step 4.4: Configure n8n for Canva OAuth (CRITICAL)
+
+Canva requires **PKCE authentication**. To make this work with self-hosted n8n:
+
+1. **Stop n8n and restart with WEBHOOK_URL**:
+   ```bash
+   docker stop n8n
+   docker rm n8n
+   docker run -d --restart unless-stopped --name n8n \
+     -p 5678:5678 \
+     -e WEBHOOK_URL=http://127.0.0.1:5678/ \
+     -v ~/.n8n:/home/node/.n8n \
+     n8nio/n8n
+   ```
+
+2. **Access n8n via `127.0.0.1` (NOT `localhost`)**:
+   ```
+   http://127.0.0.1:5678
+   ```
+
+3. **Create OAuth2 credential in n8n**:
+   - Go to **Credentials** → **Add Credential** → **OAuth2 API**
+   - Configure:
+
+   | Field | Value |
+   |-------|-------|
+   | Grant Type | **PKCE** |
+   | Authorization URL | `https://www.canva.com/api/oauth/authorize` |
+   | Access Token URL | `https://api.canva.com/rest/v1/oauth/token` |
+   | Client ID | *(from Canva)* |
+   | Client Secret | *(from Canva)* |
+   | Scope | `asset:read design:content:read design:content:write brandtemplate:content:read` |
+   | Authentication | **Body** |
+
+4. **Verify the OAuth Redirect URL** shows `127.0.0.1` (not `localhost`)
+
+5. Click **Connect my account** → Authorize in Canva popup
 
 ### Step 4.4: Prepare Your Canva Template
 
