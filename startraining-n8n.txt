@@ -159,29 +159,40 @@ Meta Developers:     https://developers.facebook.com
 
 ============================================================
 
-NEXT STEP - GET CANVA TEMPLATE ID
-----------------------------------
+NEXT STEP - NAME CANVA TEMPLATE ELEMENTS
+-----------------------------------------
 
-You need a Canva Brand Template ID to autofill workout data.
+Brand Template ID: EAG9R2WwCkE (already configured in n8n Node 5)
 
-1. Open Canva: https://www.canva.com
+ISSUE: Canva returns "No matching fields in dataset" error.
+CAUSE: Bulk Create {{placeholders}} don't work with Autofill API.
+       The API needs ELEMENT NAMES, not placeholder text.
 
-2. Create or open your workout template design
+TO FIX:
 
-3. IMPORTANT: Save as Brand Template (requires Canva Pro/Team)
-   → Click "Share" → "More" → "Brand template"
-   → Or: File → Save as brand template
+1. Open your Brand Template in Canva
 
-4. Get the Template ID from the URL:
-   https://www.canva.com/design/DAGxxxxxxxx.../edit
-                              ↑↑↑↑↑↑↑↑↑↑↑
-                              This is your template ID
+2. For each text element you want to auto-fill:
+   → Click the text element
+   → Open Layers panel (left sidebar) or Position panel (top right)
+   → Find "Element name" or "Layer name"
+   → Rename to match the API field name EXACTLY:
 
-5. In n8n, update Node 5 (Create Canva Design):
-   → Edit the HTTP Request body
-   → Replace "REPLACE_WITH_YOUR_CANVA_TEMPLATE_ID" with your actual ID
+   | Element Name | What it displays |
+   |--------------|------------------|
+   | date         | Monday date (e.g., 20250113) |
+   | source       | Week/Cycle label (e.g., Semana_1_Ciclo_7) |
 
-Example template ID format: DAGcN8QVCgA (alphanumeric string)
+3. Save the template (auto-saves)
+
+4. If template ID changed, update n8n Node 5 body:
+   "brand_template_id": "NEW_ID_HERE"
+
+5. Test Node 5 in n8n again
+
+NOTE: The text content INSIDE the element doesn't matter.
+      Canva replaces the ENTIRE text with what the API sends.
+      Only the ELEMENT NAME must match.
 
 ============================================================
 
