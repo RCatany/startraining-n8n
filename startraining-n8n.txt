@@ -1,7 +1,7 @@
 ============================================================
 STARTRAINING N8N AUTOMATION - PROJECT STATUS
 ============================================================
-Date: January 2, 2026 (Updated)
+Date: January 4, 2026 (Updated)
 ============================================================
 
 GOAL
@@ -84,19 +84,44 @@ COMPLETED ✅
 
 IN PROGRESS 🔄
 --------------
-[🔄] Node 5: Get Canva template ID for workout design
-     → Need to create/configure template in Canva
-     → Get template ID from URL
+[🔄] DEBUG: Canva API not creating designs (Session ended Jan 4, 2026)
+     → Node 5 executes but returns NO OUTPUT (not even errors)
+     → Template confirmed as Brand Template: EAG9R2WwCkE
+     → Element names confirmed case-sensitive: DAY, DATE, SOURCE, Body
+
+     NEXT SESSION - TRY THESE STEPS:
+     1. Test Canva OAuth by creating a GET request node:
+        URL: https://api.canva.com/rest/v1/brand-templates/EAG9R2WwCkE/dataset
+        This will show the ACTUAL field names the template expects
+     2. If OAuth fails, reconnect the Canva credential in n8n
+     3. Compare the field names returned vs what we're sending
+     4. Check n8n Executions tab for detailed error logs
 
 ============================================================
 
 TODO ❌
 -------
-[❌] Node 5: Configure Canva template ID in workflow
-[❌] Node 10: Set up WhatsApp credentials
-[❌] Node 10: Add recipient phone number
+[❌] Fix Canva API - Node 5 returns no output
 [❌] Test complete workflow end-to-end
 [❌] (Optional) Set up ngrok for external access
+
+============================================================
+
+WORKFLOW STRUCTURE (11 nodes)
+-----------------------------
+1. New File in Drive      → Google Drive trigger
+2. Extract Info           → Parse filename for date/label
+3. Run Python Pipeline    → Call webhook_server.py
+4. Pipeline Success?      → IF node checks status
+   ├─ True → Update the Canva Design → Loop Over Items
+   └─ False → Pipeline Failed (NoOp)
+5. Create Canva Design    → Canva Autofill API (BLOCKED - no output)
+6. Wait for Render        → 10 seconds
+7. Export Design          → Request PNG export
+8. Wait for Export        → 15 seconds
+9. Get Export URL         → Get download URL
+10. Collect Export URLs   → Prepare data for email
+11. Send Gmail            → Notification email (replaced WhatsApp)
 
 ============================================================
 
@@ -121,11 +146,10 @@ CREDENTIALS STATUS
    - Must restart n8n with: -e WEBHOOK_URL=http://127.0.0.1:5678/
    - Must use PKCE grant type (not Authorization Code)
 
-3. WHATSAPP (not started)
-   - Get from: https://developers.facebook.com
-   - Need: Phone Number ID
-   - Need: Access Token
-   - Recipient phone number (format: 34612345678)
+3. GMAIL ✅ CONNECTED
+   - Using same Google Cloud project as Drive
+   - Scope added: https://mail.google.com/
+   - Sends notification to: rjaumecatany@gmail.com
 
 ============================================================
 
