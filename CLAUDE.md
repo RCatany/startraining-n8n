@@ -94,7 +94,7 @@ curl http://localhost:5001/health
 # Import: Workflows → Import from File
 ```
 
-## Current Status (January 6, 2026)
+## Current Status (January 7, 2026)
 
 ### Completed
 - n8n running locally with Docker (v2.1.4)
@@ -104,15 +104,15 @@ curl http://localhost:5001/health
 - OAuth credentials setup guide created
 - Webhook server operational on port 5001
 - Pipeline test successful (agentB.py timeout fixed)
-- Canva API field names corrected (case-sensitive fix)
+- Canva API field mapping corrected in workflow v1.1
 
 ### In Progress
 - Testing complete workflow v1.1 end-to-end
-- Verifying Canva template element naming
 
 ### Critical Notes
 - **Canva API Field Names**: CASE-SENSITIVE - must match template element names exactly
-  - Template expects: Day, Date, Source, Exercise, Category, Block, Cues_Beginner, Cues_Intermediate, Cues_RX
+  - Template elements: DAY, DATE, SOURCE, Body
+  - CSV columns mapped: Day→DAY, Date→DATE, Source→SOURCE, Exercise→Body
 - **Canva Template ID**: EAG9R2WwCkE
 - **Filename Format**: `YYYYMMDD_semana X CICLO Y startrainingbox.docx`
 
@@ -147,6 +147,6 @@ See [oauth_credentials_setup_guide.md](Instructions_n8n/oauth_credentials_setup_
 ### Canva Template Element Naming
 - Element names must match API field names exactly
 - Open template → Click element → Rename in Layers/Position panel
-- Field names are case-sensitive (Day, not DAY)
+- Current template elements: DAY, DATE, SOURCE, Body
 
-<!-- Synchronized: 2026-01-06 -->
+<!-- Synchronized: 2026-01-07 -->

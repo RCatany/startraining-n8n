@@ -272,7 +272,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extract canva_data array from webhook response\nconst canvaData = $input.first().json.canva_data;\n\n// Return each day as a separate item for the loop\nreturn canvaData.map(day => ({ json: day }));\n"
+        "jsCode": "// Extract canva_data array from webhook response\nconst canvaData = $input.first().json.canva_data;\n\n// Remap field names to match Canva template element names\n// CSV columns -> Template elements:\n// Day -> DAY, Date -> DATE, Source -> SOURCE, Exercise -> Body\nreturn canvaData.map(day => ({\n  json: {\n    DAY: day.Day,\n    DATE: day.Date,\n    SOURCE: day.Source,\n    Body: day.Exercise\n  }\n}));\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
