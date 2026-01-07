@@ -130,7 +130,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"brand_template_id\": \"EAG9R2WwCkE\",\n  \"data\": {\n    \"Day\": { \"type\": \"text\", \"text\": \"{{ $json.Day }}\" },\n    \"Date\": { \"type\": \"text\", \"text\": \"{{ $json.Date }}\" },\n    \"Source\": { \"type\": \"text\", \"text\": \"{{ $json.Source }}\" },\n    \"Exercise\": { \"type\": \"text\", \"text\": \"{{ $json.Exercise }}\" },\n    \"Category\": { \"type\": \"text\", \"text\": \"{{ $json.Category }}\" },\n    \"Block\": { \"type\": \"text\", \"text\": \"{{ $json.Block }}\" },\n    \"HeadCoach\": { \"type\": \"text\", \"text\": \"{{ $json.HeadCoach }}\" },\n    \"Cues_Beginner\": { \"type\": \"text\", \"text\": \"{{ $json.Cues_Beginner }}\" },\n    \"Cues_Intermediate\": { \"type\": \"text\", \"text\": \"{{ $json.Cues_Intermediate }}\" },\n    \"Cues_RX\": { \"type\": \"text\", \"text\": \"{{ $json.Cues_RX }}\" }\n  }\n}\n",
+        "jsonBody": "={\n  \"brand_template_id\": \"EAG9R2WwCkE\",\n  \"data\": {\n    \"DAY\": { \"type\": \"text\", \"text\": \"{{ $json.DAY }}\" },\n    \"DATE\": { \"type\": \"text\", \"text\": \"{{ $json.DATE }}\" },\n    \"SOURCE\": { \"type\": \"text\", \"text\": \"{{ $json.SOURCE }}\" },\n    \"Body\": { \"type\": \"text\", \"text\": \"{{ $json.Body }}\" }\n  }\n}\n",
         "options": {}
       },
       "id": "45e016ab-1c00-4672-8185-417b0cb7fe3c",
@@ -138,8 +138,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        496,
-        -752
+        464,
+        -688
       ],
       "credentials": {
         "oAuth2Api": {
@@ -159,7 +159,7 @@
       "typeVersion": 1.1,
       "position": [
         688,
-        -752
+        -688
       ],
       "webhookId": "449f20c1-355b-429f-9099-f46c4e978668",
       "notes": "Gives Canva time to process the design"
@@ -181,7 +181,7 @@
       "typeVersion": 4.2,
       "position": [
         912,
-        -752
+        -688
       ],
       "credentials": {
         "oAuth2Api": {
@@ -201,7 +201,7 @@
       "typeVersion": 1.1,
       "position": [
         1136,
-        -752
+        -688
       ],
       "webhookId": "f42b9591-9fd8-4a86-be32-4c2bb05482fa",
       "notes": "Gives Canva time to generate the PNG"
@@ -218,8 +218,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1424,
-        -512
+        1360,
+        -592
       ],
       "credentials": {
         "oAuth2Api": {
@@ -240,8 +240,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -48,
-        -144
+        -96,
+        400
       ]
     },
     {
@@ -252,7 +252,7 @@
       "typeVersion": 1,
       "position": [
         16,
-        -336
+        -328
       ]
     },
     {
@@ -265,7 +265,7 @@
       "typeVersion": 3,
       "position": [
         240,
-        -528
+        -520
       ],
       "id": "10d0540f-4fdf-44ef-8169-1481941cba26",
       "name": "Loop Over Items"
@@ -278,19 +278,19 @@
       "typeVersion": 2,
       "position": [
         16,
-        -528
+        -520
       ],
       "id": "a4ae34ad-502b-4ba1-aa82-a0e021d5823e",
       "name": "Update the Canva Design"
     },
     {
       "parameters": {
-        "jsCode": "// After loop completes, get the original data for the email\nconst webhookData = $('3. Run Python Pipeline').first().json;\n\nreturn [{\n  json: {\n    source_label: webhookData.source_label,\n    monday_date: webhookData.monday_date,\n    days_count: webhookData.canva_data?.length || 6\n  }\n}];\n"
+        "jsCode": "// Get all items from the Get Export URL node across all loop iterations\nconst allExports = $items('9. Get Export URL');\n\n// Extract the download URLs\nconst downloads = allExports.map((item, index) => ({\n  url: item.json.job?.result?.urls?.[0] || '',\n  filename: `workout_day_${index + 1}.png`,\n  day: item.json.DAY || `Day ${index + 1}`\n}));\n\nreturn downloads.map(d => ({ json: d }));\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        480,
+        464,
         -496
       ],
       "id": "e61cd12c-aa6c-49f5-be4a-21398cc172e5",
@@ -298,20 +298,66 @@
     },
     {
       "parameters": {
-        "sendTo": "rjaumecatany@gmail.com",
-        "subject": "=Workout Designs Ready: {{ $json.source_label }}",
-        "emailType": "text",
-        "message": "=Your {{ $json.days_count }} workout designs for {{ $json.source_label }} have been created in Canva.\n\nTo view your designs:\n1. Go to canva.com\n2. Click on \"Projects\" or \"Designs\" \n3. Look for the recently created designs\n\nWeek starting: {{ $json.monday_date }}\n",
-        "options": {}
+        "url": "={{ $json.url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
       },
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
       "position": [
         688,
         -496
       ],
+      "id": "77b4517a-ec9b-416f-8610-9e5c483d9a79",
+      "name": "11. HTTP Request"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        912,
+        -496
+      ],
+      "id": "e507119f-c301-445f-ad08-98070578cdb9",
+      "name": "12. Aggregate"
+    },
+    {
+      "parameters": {
+        "sendTo": "rjaumecatany@gmail.com",
+        "subject": "==Workout Week: {{ $('3. Run Python Pipeline').first().json.source_label }}\n",
+        "emailType": "text",
+        "message": "==Workout designs for {{ $('3. Run Python Pipeline').first().json.source_label }} have been created.\n",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1136,
+        -496
+      ],
       "id": "9be53439-d869-44fd-add6-2aa3776e1bca",
-      "name": "11. Send a message",
+      "name": "13. Send a message",
       "webhookId": "3a24e0d5-7c2b-4fbd-9d1e-24f6e366463d",
       "credentials": {
         "gmailOAuth2": {
@@ -467,14 +513,36 @@
       "main": [
         [
           {
-            "node": "11. Send a message",
+            "node": "11. HTTP Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "11. Send a message": {
+    "11. HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "12. Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12. Aggregate": {
+      "main": [
+        [
+          {
+            "node": "13. Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13. Send a message": {
       "main": [
         []
       ]
@@ -485,9 +553,10 @@
     "executionOrder": "v1",
     "availableInMCP": false,
     "timeSavedMode": "fixed",
-    "callerPolicy": "workflowsFromSameOwner"
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
   },
-  "versionId": "4af10421-bdcc-4ca6-877d-8640f8014a46",
+  "versionId": "b49a8264-cad2-4eb3-995d-365f31cb84bd",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "96b982c284388ec34a1cbc907541b1e0e47b39d8b6354160a886cb218f8c085d"

@@ -1,0 +1,78 @@
+# Cursor AI Rules for startraining-n8n
+
+## Project Type
+Docker-based n8n automation workflow orchestrating StarTraining workout publishing pipeline.
+
+## Tech Stack
+- n8n (workflow automation)
+- Docker & Docker Compose
+- Python webhook server (separate repo: startraining-ai-pipeline)
+- APIs: Google Drive, Canva, WhatsApp
+
+## File Patterns
+
+### Always Check Before Editing
+- `docker-compose.yml` - Container configuration (restart required after changes)
+- `workflows/*.json` - n8n workflow exports (re-import to n8n after editing)
+
+### Never Modify
+- `.n8n/` directory - n8n internal data
+- `n8n_data/` - Docker volume data
+
+## Coding Standards
+
+### n8n Workflow JSON
+- Export workflows from n8n UI before editing
+- Validate JSON before re-importing
+- Test in n8n after modifications
+
+### Docker Commands
+- Use `docker compose` (not `docker-compose`)
+- Always use `127.0.0.1` not `localhost` (Canva OAuth requirement)
+- Use `host.docker.internal` to reach host from container
+
+### URL Conventions
+- n8n UI: `http://127.0.0.1:5678`
+- Webhook server (from host): `http://localhost:5001`
+- Webhook server (from n8n): `http://host.docker.internal:5001`
+
+## Common Tasks
+
+### Start Environment
+```bash
+docker compose up -d
+cd ~/GitHub/startraining-ai-pipeline && source .venv/bin/activate && PORT=5001 python webhook_server.py
+```
+
+### Restart After Changes
+```bash
+docker compose restart
+```
+
+### View Logs
+```bash
+docker compose logs -f n8n
+```
+
+## External Services
+
+### Google Drive
+- Console: console.cloud.google.com
+- Scope: drive.readonly
+- OAuth redirect: http://127.0.0.1:5678/rest/oauth2-credential/callback
+
+### Canva
+- Console: canva.dev
+- Scopes: design:content:read, design:content:write, brandtemplate:content:read
+- OAuth: PKCE required, no localhost allowed (use 127.0.0.1)
+
+### WhatsApp
+- Console: developers.facebook.com
+- Scope: whatsapp_business_messaging
+
+## Critical Notes
+- Canva API field names are CASE-SENSITIVE
+- Template element names must match API field names exactly
+- Timezone: Europe/Madrid
+
+<!-- Synchronized: 2026-01-05 16:30 -->

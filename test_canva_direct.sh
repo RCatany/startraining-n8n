@@ -17,14 +17,18 @@ curl -X POST "https://api.canva.com/rest/v1/autofills" \
   -d '{
     "brand_template_id": "'"$TEMPLATE_ID"'",
     "data": {
-      "DAY": { "type": "text", "text": "Lunes" },
-      "DATE": { "type": "text", "text": "20260105" },
-      "SOURCE": { "type": "text", "text": "Semana_8_Ciclo_8" },
-      "Body": { "type": "text", "text": "Test exercise content" }
+      "Day": { "type": "text", "text": "Lunes" },
+      "Date": { "type": "text", "text": "20260105" },
+      "Source": { "type": "text", "text": "Semana_8_Ciclo_8" },
+      "Exercise": { "type": "text", "text": "Test exercise content" },
+      "Category": { "type": "text", "text": "WOD" },
+      "Block": { "type": "text", "text": "Block 1" },
+      "Cues_Beginner": { "type": "text", "text": "" },
+      "Cues_Intermediate": { "type": "text", "text": "" },
+      "Cues_RX": { "type": "text", "text": "" }
     }
   }' \
   -w "\n\nHTTP Status: %{http_code}\n"
 
 echo ""
-echo "If you see an error like 'No matching fields' or 'invalid_field',"
-echo "the template element names don't match DAY, DATE, SOURCE, Body"
+echo "Template field names (case-sensitive): Day, Date, Source, Exercise, Category, Block, Cues_Beginner, Cues_Intermediate, Cues_RX"
