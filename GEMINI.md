@@ -26,7 +26,8 @@ You are assisting with a Docker-based n8n automation workflow that orchestrates 
 startraining-n8n/
 ├── docker-compose.yml           # n8n container config
 ├── workflows/                   # n8n workflow JSON exports
-│   └── startraining_canva_workflow_v1.json
+│   ├── startraining_canva_workflow_v1.1.json
+│   └── startraining_canva_workflow_v1.2.json  # Current version
 ├── Instructions_n8n/            # Setup guides
 │   ├── startraining_quickstart.md
 │   └── startraining_n8n_complete_guide.md
@@ -120,19 +121,26 @@ curl http://localhost:5001/health
 - **Console:** developers.facebook.com
 - **Scope:** whatsapp_business_messaging
 
-## Workflow Structure (11 Nodes)
+## Workflow Structure (v1.2 - 18 Nodes)
 
 1. **Google Drive Trigger** - Watch for new .docx files
 2. **Code Node** - Extract date & label from filename
 3. **HTTP Request** - Call webhook_server.py
 4. **IF Node** - Check pipeline success
-5. **Canva Autofill** - Create design from template (Loop Over Items)
-6. **Wait** - 10 seconds for rendering
-7. **Export Design** - Request PNG export
-8. **Wait** - 15 seconds for export
-9. **Get Export URL** - Retrieve download URL
-10. **Collect Export URLs** - Prepare data
-11. **Send Gmail** - Notification email
+5. **Prepare Folders** - Generate MAIN/STRENGTH folder items
+6. **Create folder** - Creates folder in Google Drive (runs twice)
+7. **Collect Folder IDs** - Map folder names to IDs
+8. **Loop Over canva_data** - Iterate through workout items
+9. **Canva Autofill** - Create design from template
+10. **Wait** - 10 seconds for autofill completion
+11. **Get Autofill Result** - Poll for design ID
+12. **Export Design** - Request PNG export
+13. **Wait** - 15 seconds for export
+14. **Get Export URL** - Retrieve download URL
+15. **Download Image** - Fetch PNG from Canva
+16. **Upload file** - Upload to correct folder (MAIN or STRENGTH) based on Type
+17. **Collect Results** - Aggregate data after loop
+18. **Send Gmail** - ONE email with links to both folders
 
 ## Important Guidelines
 
@@ -154,23 +162,30 @@ curl http://localhost:5001/health
 # Import: Workflows → Import from File
 ```
 
-## Current Status (as of 2026-01-05)
+## Current Status (as of 2026-01-07)
 
 ### Completed
-- n8n running locally with Docker
+- n8n running locally with Docker (v2.1.4)
 - Google Drive OAuth connected
-- Canva OAuth connected (PKCE fix applied)
-- Webhook server operational
+- Gmail OAuth connected
+- Canva OAuth connected (PKCE, correct token URL)
+- Webhook server operational on port 5001
 - Pipeline test successful (agentB.py timeout fixed)
-- Canva API field names corrected
+- Canva API field names corrected (case-sensitive)
+- Workflow v1.2 tested end-to-end successfully
 
-### In Progress
-- Testing complete workflow end-to-end
-- Verifying Canva template element naming
+### Workflow v1.2 Features
+- Automatic trigger when new .docx uploaded to Google Drive Raw folder
+- Creates TWO output folders: MAIN and STRENGTH (dynamic single node)
+- Routes designs to correct folder based on Type field
+- Filename format: `YYYYMMDD_Day_TYPE.png` (e.g., `20260107_Lunes_MAIN.png`)
+- Sends ONE email with links to both folders after all uploads complete
 
-### Known Issues
-- Canva template element names must match API field names exactly
-- Root cause: Field names are case-sensitive and were mismatched
+### Canva API Endpoints (Correct)
+- Autofill: `POST /rest/v1/autofills`
+- Export: `POST /rest/v1/exports`
+- Get Export: `GET /rest/v1/exports/{id}`
+- Template Dataset: `GET /rest/v1/brand-templates/{id}/dataset`
 
 ## Troubleshooting
 
@@ -200,4 +215,4 @@ curl http://localhost:5001/health
 - Canva API Docs: canva.dev/docs
 - WhatsApp API: developers.facebook.com/docs/whatsapp
 
-<!-- Synchronized: 2026-01-05 16:30 -->
+<!-- Synchronized: 2026-01-07 -->

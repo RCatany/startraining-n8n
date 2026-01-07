@@ -113,13 +113,16 @@ curl http://localhost:5001/health
 - Pipeline test successful (agentB.py timeout fixed)
 - Canva API field mapping corrected (Day, Date, Source, Exercise)
 - Canva API endpoints fixed (autofill polling, export URL structure)
-- Workflow v1.1 activated and auto-triggering on new files
+- Workflow v1.2 completed with MAIN/STRENGTH folder separation
+- Python webhook updated to include Type field in canva_data
 
-### Workflow v1.1 Features
+### Workflow v1.2 Features
 - Automatic trigger when new .docx uploaded to Google Drive Raw folder
-- Creates output folder in Google Drive per week
-- Uploads exported PNGs to Drive folder
-- Sends email notification with folder link
+- Creates TWO output folders: MAIN and STRENGTH (dynamic single node)
+- Routes designs to correct folder based on Type field
+- Filename format: `YYYYMMDD_Day_TYPE.png` (e.g., `20260107_Lunes_MAIN.png`)
+- Sends ONE email with links to both folders after all uploads complete
+- Webhook returns `canva_data` with Type field, plus `canva_data_main` and `canva_data_strength` arrays
 
 ### Critical Notes
 - **Canva API Field Names**: CASE-SENSITIVE - must match template dataset field names exactly
