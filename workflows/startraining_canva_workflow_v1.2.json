@@ -1,0 +1,693 @@
+{
+  "name": "StarTraining Pipeline v1.2 (MAIN + STRENGTH folders)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/folders/1ggqu326-4x_YghpkjTsrg9_AVKpr92Qt",
+          "mode": "url"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "id": "2e82d788-0ad5-4ef2-a96f-0088870ca7ac",
+      "name": "1. New File in Drive",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -160
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "t4FdjPwVFcTrEsYq",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Watches your Raw folder for new .docx files"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract monday_date and source_label from filename\n// Expected format: 20250908_semana 1 CICLO 7 startrainingbox.docx\n\nconst fileName = $input.first().json.name;\nconst name = fileName.replace('.docx', '').replace('.odt', '');\n\n// Extract date (first 8 digits)\nconst dateMatch = name.match(/^(\\d{8})_(.+)$/);\nif (!dateMatch) {\n  throw new Error(`Invalid filename format: ${fileName}. Expected: YYYYMMDD_semana X CICLO Y...`);\n}\n\nconst mondayDate = dateMatch[1];\nconst rest = dateMatch[2];\n\n// Extract semana and ciclo\nconst labelMatch = rest.match(/[sS]emana\\s+(\\d+)\\s+[cC]ICLO\\s+(\\d+)/i);\nlet sourceLabel;\n\nif (labelMatch) {\n  sourceLabel = `Semana_${labelMatch[1]}_Ciclo_${labelMatch[2]}`;\n} else {\n  sourceLabel = rest.replace(/\\s+/g, '_');\n}\n\nreturn [{\n  json: {\n    fileName: fileName,\n    fileId: $input.first().json.id,\n    mondayDate: mondayDate,\n    sourceLabel: sourceLabel\n  }\n}];"
+      },
+      "id": "6653f414-4091-49a5-9ead-14f8d6c61b62",
+      "name": "2. Extract Info from Filename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        -160
+      ],
+      "notes": "Parses the filename to get date and week label"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/run-single",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_name\": \"{{ $json.fileName }}\"\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "7b9f636d-0942-4986-8a26-cf7baae9f20b",
+      "name": "3. Run Python Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -192,
+        -160
+      ],
+      "notes": "Calls your webhook_server.py to run Agents A→B→C→D"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "success-check",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3de00a50-eaa5-44f1-badd-47e711b4aedb",
+      "name": "4. Pipeline Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        32,
+        -160
+      ],
+      "notes": "Checks if the Python pipeline ran successfully"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create two folder items (MAIN and STRENGTH)\nconst mondayDate = $('3. Run Python Pipeline').first().json.monday_date;\nconst sourceLabel = $('3. Run Python Pipeline').first().json.source_label;\n\nreturn [\n  {\n    json: {\n      folderName: `${mondayDate}_${sourceLabel}_AGENT_D_MAIN`,\n      type: 'MAIN'\n    }\n  },\n  {\n    json: {\n      folderName: `${mondayDate}_${sourceLabel}_AGENT_D_STRENGTH`,\n      type: 'STRENGTH'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        -288
+      ],
+      "id": "prepare-folders-node",
+      "name": "Prepare Folders"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.folderName }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/folders/1MdMwxFCiOIFXlcY6aF6hcgPplwXuwJoS",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        480,
+        -288
+      ],
+      "id": "023e3d87-a4ac-45db-bc13-b2566f5c9064",
+      "name": "Create folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "t4FdjPwVFcTrEsYq",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Creates both MAIN and STRENGTH folders (runs twice)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect folder IDs from the Create folder node\nconst folders = $('Create folder').all();\nconst prepFolders = $('Prepare Folders').all();\n\n// Build lookup: type -> folderId\nconst folderLookup = {};\nfolders.forEach((f, idx) => {\n  const type = prepFolders[idx]?.json?.type || (idx === 0 ? 'MAIN' : 'STRENGTH');\n  folderLookup[type] = f.json.id;\n});\n\nreturn [{\n  json: {\n    mainFolderId: folderLookup['MAIN'],\n    strengthFolderId: folderLookup['STRENGTH'],\n    folderLookup: folderLookup\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        -288
+      ],
+      "id": "collect-folder-ids",
+      "name": "Collect Folder IDs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get canva_data from the pipeline response (now includes Type field)\nconst canvaData = $('3. Run Python Pipeline').first().json.canva_data;\nconst mondayDate = $('3. Run Python Pipeline').first().json.monday_date;\n\n// Pass through all fields including Type\nreturn canvaData.map(day => ({\n  json: {\n    Day: day.Day,\n    Date: day.Date,\n    Source: day.Source,\n    Exercise: day.Exercise,\n    Type: day.Type,  // MAIN or STRENGTH\n    mondayDate: mondayDate\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        -288
+      ],
+      "id": "16f6191d-31b7-4352-99f6-2efd05ee491c",
+      "name": "Update the Canva Design"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1152,
+        -288
+      ],
+      "id": "080094dc-cc05-40a9-b84e-3d989bc00d54",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Canva autofill request with correct field names\nconst item = $input.first().json;\n\nreturn [{\n  json: {\n    brand_template_id: \"EAG9R2WwCkE\",\n    data: {\n      Day: { type: \"text\", text: String(item.Day || '') },\n      Date: { type: \"text\", text: String(item.Date || '') },\n      Source: { type: \"text\", text: String(item.Source || '') },\n      Exercise: { type: \"text\", text: String(item.Exercise || '') }\n    },\n    // Pass through for later use\n    _meta: {\n      Day: item.Day,\n      Type: item.Type,\n      mondayDate: item.mondayDate\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        -288
+      ],
+      "id": "2d538639-8060-457b-a5b3-e03ed763341b",
+      "name": "Prepare a Canva Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.canva.com/rest/v1/autofills",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"brand_template_id\": \"{{ $json.brand_template_id }}\",\n  \"data\": {{ JSON.stringify($json.data) }}\n}",
+        "options": {}
+      },
+      "id": "b731fe91-d385-4eb6-aff7-f4ecf649c8fc",
+      "name": "5. Create Canva Design",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        -288
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "cvOUQ46FuiQ46HhR",
+          "name": "Canva connection"
+        }
+      },
+      "notes": "Uses Canva Autofill API to create design from template"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "b66256e6-8b42-4c75-9877-03126f19216a",
+      "name": "6. Wait for Render",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1824,
+        -288
+      ],
+      "webhookId": "c6a5fd0c-e85c-4529-9fb0-c48ec0061ff4",
+      "notes": "Gives Canva time to process the design"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.canva.com/rest/v1/autofills/{{ $('5. Create Canva Design').item.json.job.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2048,
+        -288
+      ],
+      "id": "13669d55-43e7-4f2c-9532-69e4e670a974",
+      "name": "6b. Get Autofill Result",
+      "credentials": {
+        "oAuth2Api": {
+          "id": "cvOUQ46FuiQ46HhR",
+          "name": "Canva connection"
+        }
+      },
+      "notes": "Polls autofill job to get design ID"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.canva.com/rest/v1/exports",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"design_id\": \"{{ $('6b. Get Autofill Result').item.json.job.result.design.id }}\",\n  \"format\": {\n    \"type\": \"png\"\n  }\n}",
+        "options": {}
+      },
+      "id": "79d81681-1a76-4b5c-b796-5e50126e3471",
+      "name": "7. Export Design",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2272,
+        -288
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "cvOUQ46FuiQ46HhR",
+          "name": "Canva connection"
+        }
+      },
+      "notes": "Requests PNG export from Canva"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "id": "d0696537-77dd-4a62-a98b-8a616c959d4b",
+      "name": "8. Wait for Export",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2496,
+        -288
+      ],
+      "webhookId": "d97b92de-abee-4600-80a7-b4260753fb9f",
+      "notes": "Gives Canva time to generate the PNG"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.canva.com/rest/v1/exports/{{ $('7. Export Design').item.json.job.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
+      },
+      "id": "3d9bf4cf-c442-4b0e-a9a2-71ed60f5e11c",
+      "name": "9. Get Export URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2720,
+        -288
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "cvOUQ46FuiQ46HhR",
+          "name": "Canva connection"
+        }
+      },
+      "notes": "Gets the download URL for the exported PNG"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.job.urls[0] }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2944,
+        -288
+      ],
+      "id": "3b59d94b-24d7-43ac-8f8c-360c5745c68c",
+      "name": "10. Download PNG"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Prepare a Canva Request').item.json._meta.mondayDate }}_{{ $('Prepare a Canva Request').item.json._meta.Day }}_{{ $('Prepare a Canva Request').item.json._meta.Type }}.png",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $('Prepare a Canva Request').item.json._meta.Type === 'MAIN' ? $('Collect Folder IDs').first().json.mainFolderId : $('Collect Folder IDs').first().json.strengthFolderId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3168,
+        -288
+      ],
+      "id": "49010c28-5587-4858-95ee-d23069dc6432",
+      "name": "11. Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "t4FdjPwVFcTrEsYq",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Uploads PNG to correct folder (MAIN or STRENGTH) based on Type"
+    },
+    {
+      "parameters": {
+        "sendTo": "rjaumecatany@gmail.com",
+        "subject": "=Workout Week: {{ $('3. Run Python Pipeline').first().json.source_label }}",
+        "emailType": "text",
+        "message": "=Workout designs for {{ $('3. Run Python Pipeline').first().json.source_label }} have been created.\n\nMAIN folder:\nhttps://drive.google.com/drive/folders/{{ $('Collect Folder IDs').first().json.mainFolderId }}\n\nSTRENGTH folder:\nhttps://drive.google.com/drive/folders/{{ $('Collect Folder IDs').first().json.strengthFolderId }}\n\nGenerated automatically by StarTraining Pipeline v1.2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1376,
+        -480
+      ],
+      "id": "1b1487a6-f902-45ee-9cf0-d5d6d79e3f57",
+      "name": "12. Send Email",
+      "webhookId": "d9ae8f12-c5f8-440e-84dd-9904b129fbbe",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Px2M0sNq5xDcw6V0",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Sends ONE email after all designs are uploaded"
+    },
+    {
+      "parameters": {
+        "content": "## Pipeline Failed\n\nThe Python pipeline returned an error.\n\n**Check:**\n1. Is webhook_server.py running?\n2. Is ngrok/your server accessible?\n3. Check the pipeline logs",
+        "height": 180,
+        "width": 280
+      },
+      "id": "eb5caa0e-4aa2-4dae-bd89-bb588066845f",
+      "name": "Error Info",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        208,
+        100
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d52d82b5-ad4e-4537-9666-340de1d01233",
+      "name": "Pipeline Failed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        256,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "1. New File in Drive": {
+      "main": [
+        [
+          {
+            "node": "2. Extract Info from Filename",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Extract Info from Filename": {
+      "main": [
+        [
+          {
+            "node": "3. Run Python Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Run Python Pipeline": {
+      "main": [
+        [
+          {
+            "node": "4. Pipeline Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Pipeline Success?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Folders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pipeline Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Folders": {
+      "main": [
+        [
+          {
+            "node": "Create folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create folder": {
+      "main": [
+        [
+          {
+            "node": "Collect Folder IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Folder IDs": {
+      "main": [
+        [
+          {
+            "node": "Update the Canva Design",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update the Canva Design": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "12. Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare a Canva Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare a Canva Request": {
+      "main": [
+        [
+          {
+            "node": "5. Create Canva Design",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Create Canva Design": {
+      "main": [
+        [
+          {
+            "node": "6. Wait for Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Wait for Render": {
+      "main": [
+        [
+          {
+            "node": "6b. Get Autofill Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6b. Get Autofill Result": {
+      "main": [
+        [
+          {
+            "node": "7. Export Design",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Export Design": {
+      "main": [
+        [
+          {
+            "node": "8. Wait for Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Wait for Export": {
+      "main": [
+        [
+          {
+            "node": "9. Get Export URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Get Export URL": {
+      "main": [
+        [
+          {
+            "node": "10. Download PNG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10. Download PNG": {
+      "main": [
+        [
+          {
+            "node": "11. Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11. Upload file": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "v1.2.0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "33161149248810f836dc45666e43ca5ad11f5db7a2b9eeb37d31e0cce4e80d64"
+  },
+  "id": "startraining-v1.2",
+  "tags": [
+    {
+      "id": "AN52JTAVIt5mwzbR",
+      "name": "StarTraining"
+    }
+  ]
+}
