@@ -35,7 +35,7 @@
 - **File Pattern:** `*.docx`
 - **Poll Interval:** Every minute
 
-### Agent Processing Chain
+### Agent Processing Chain (Workflow v1.2)
 
 ```
 Agent 1: File Detector (Google Drive Trigger)
@@ -52,51 +52,92 @@ Agent 2: Metadata Extractor (Code Node)
 Agent 3: Pipeline Orchestrator (HTTP Request)
 ├─ Input: { file_name }
 ├─ Action: POST to http://host.docker.internal:5001/run-single
-├─ Output: { status, csv_file, message }
+├─ Output: { status, canva_data, canva_data_main, canva_data_strength }
 └─ Next: Agent 4
 
 Agent 4: Condition Router (IF Node)
 ├─ Input: Pipeline status
 ├─ Condition: status === "success"
-├─ True Path: Agent 5 (Canva)
+├─ True Path: Agent 5 (Folder Prep)
 └─ False Path: Error handler
 
-Agent 5: Design Creator (Canva Autofill)
-├─ Input: CSV data fields
-├─ Action: POST to https://api.canva.com/rest/v1/autofills
-├─ Output: { job.result.design.id }
+Agent 5: Folder Preparer (Prepare Folders)
+├─ Input: mondayDate, sourceLabel
+├─ Action: Generate 2 folder items (MAIN, STRENGTH)
+├─ Output: [{ suffix: "MAIN" }, { suffix: "STRENGTH" }]
 └─ Next: Agent 6
 
-Agent 6: Wait Controller
-├─ Input: Timer trigger
-├─ Action: Wait 10 seconds
+Agent 6: Folder Creator (Create folder)
+├─ Input: Folder suffix
+├─ Action: Create folder in Google Drive (runs twice)
+├─ Output: { folder.id, folder.name }
 └─ Next: Agent 7
 
-Agent 7: Export Initiator (Canva Export)
-├─ Input: Design ID
-├─ Action: POST to https://api.canva.com/rest/v1/designs/{id}/exports
-├─ Output: { job.id }
+Agent 7: Folder ID Collector (Collect Folder IDs)
+├─ Input: Created folder data
+├─ Action: Map folder names to IDs
+├─ Output: { folderMap: { MAIN: id1, STRENGTH: id2 } }
 └─ Next: Agent 8
 
-Agent 8: Wait Controller
-├─ Input: Timer trigger
-├─ Action: Wait 15 seconds
-└─ Next: Agent 9
+Agent 8: Data Loop (Loop Over canva_data)
+├─ Input: canva_data array with Type field
+├─ Action: Iterate through each workout item
+└─ Next: Agent 9 (per item)
 
-Agent 9: Export Retriever
-├─ Input: Export job ID
-├─ Action: GET to https://api.canva.com/rest/v1/exports/{id}
-├─ Output: { job.result.urls[] }
+Agent 9: Design Creator (Canva Autofill)
+├─ Input: Day, Date, Source, Exercise fields
+├─ Action: POST to https://api.canva.com/rest/v1/autofills
+├─ Output: { job.id }
 └─ Next: Agent 10
 
-Agent 10: Data Collector
-├─ Input: Export URLs array
-├─ Action: Aggregate data for notification
+Agent 10: Wait Controller
+├─ Input: Timer trigger
+├─ Action: Wait 10 seconds
 └─ Next: Agent 11
 
-Agent 11: Notification Sender (Gmail)
-├─ Input: Export URLs, metadata
-├─ Action: Send email notification
+Agent 11: Autofill Poller (Get Autofill Result)
+├─ Input: Autofill job ID
+├─ Action: GET to https://api.canva.com/rest/v1/autofills/{id}
+├─ Output: { job.result.design.id }
+└─ Next: Agent 12
+
+Agent 12: Export Initiator (Canva Export)
+├─ Input: Design ID
+├─ Action: POST to https://api.canva.com/rest/v1/exports
+├─ Output: { job.id }
+└─ Next: Agent 13
+
+Agent 13: Wait Controller
+├─ Input: Timer trigger
+├─ Action: Wait 15 seconds
+└─ Next: Agent 14
+
+Agent 14: Export Retriever
+├─ Input: Export job ID
+├─ Action: GET to https://api.canva.com/rest/v1/exports/{id}
+├─ Output: { job.urls[0] }
+└─ Next: Agent 15
+
+Agent 15: Image Downloader
+├─ Input: Export URL
+├─ Action: Download PNG image
+├─ Output: Binary image data
+└─ Next: Agent 16
+
+Agent 16: File Uploader (Upload file)
+├─ Input: Image data, Type field
+├─ Action: Upload to MAIN or STRENGTH folder based on Type
+├─ Filename: YYYYMMDD_Day_TYPE.png
+└─ Next: Agent 17 (or loop back)
+
+Agent 17: Data Collector (Collect Results)
+├─ Input: All uploaded file data
+├─ Action: Aggregate after loop completes
+└─ Next: Agent 18
+
+Agent 18: Notification Sender (Gmail)
+├─ Input: Folder links, metadata
+├─ Action: Send ONE email with links to both folders
 └─ End: Workflow complete
 ```
 
@@ -267,7 +308,7 @@ docker compose logs -f n8n
 # (visible in terminal where server is running)
 ```
 
-## Agent Decision Tree
+## Agent Decision Tree (Workflow v1.2)
 
 ```
 New .docx uploaded to Google Drive
@@ -279,26 +320,46 @@ Is filename format valid? (YYYYMMDD_semana X CICLO Y *.docx)
 Call webhook server
   ↓
 Did pipeline succeed? (status === "success")
-  ├─ Yes → CSV file path received → Continue to Canva
+  ├─ Yes → canva_data with Type field received → Continue
   └─ No → Log error → Stop workflow
 
-Create Canva design
+Create MAIN and STRENGTH folders in Google Drive
   ↓
-Did autofill succeed? (design.id returned)
-  ├─ Yes → Wait 10s → Request export
-  └─ No → Check OAuth → Check field names → Retry
+Did folder creation succeed?
+  ├─ Yes → Store folder IDs in map → Continue
+  └─ No → Check OAuth → Retry
 
-Export design as PNG
+FOR EACH item in canva_data:
   ↓
-Did export complete? (job.result.urls available)
-  ├─ Yes → Extract URL → Send via WhatsApp
-  └─ No → Wait longer → Retry up to 3 times
+  Create Canva design (autofill)
+    ↓
+  Did autofill job complete? (poll for result)
+    ├─ Yes → design.id received → Request export
+    └─ No → Wait 10s → Poll again
 
-Send WhatsApp message
+  Export design as PNG
+    ↓
+  Did export complete? (job.urls available)
+    ├─ Yes → Download image
+    └─ No → Wait 15s → Poll again
+
+  Upload to Google Drive
+    ↓
+  Which folder? (based on Type field)
+    ├─ Type="MAIN" → Upload to MAIN folder
+    └─ Type="STRENGTH" → Upload to STRENGTH folder
+
+  Filename: YYYYMMDD_Day_TYPE.png
   ↓
-Was message delivered? (response 200 OK)
-  ├─ Yes → Send success notification → End
-  └─ No → Check phone number format → Check auth token → Retry
+  → Loop back for next item
+
+After ALL items processed:
+  ↓
+Send ONE Gmail notification
+  ├─ Contains links to MAIN folder
+  └─ Contains links to STRENGTH folder
+  ↓
+End: Workflow complete
 ```
 
 ## Agent Memory/State
@@ -340,4 +401,4 @@ Was message delivered? (response 200 OK)
 
 **Integration Point:** HTTP webhook at /run-single endpoint
 
-<!-- Synchronized: 2026-01-05 16:30 -->
+<!-- Synchronized: 2026-01-07 -->

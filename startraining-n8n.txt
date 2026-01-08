@@ -1,7 +1,7 @@
 ============================================================
 STARTRAINING N8N AUTOMATION - PROJECT STATUS
 ============================================================
-Date: January 4, 2026 (Updated)
+Date: January 7, 2026 (Updated)
 ============================================================
 
 GOAL
@@ -84,27 +84,26 @@ COMPLETED ✅
 
 IN PROGRESS 🔄
 --------------
-[🔄] FIXED: Canva API field names corrected (Session Jan 5, 2026)
+[🔄] FIXED: Canva API field mapping corrected (Session Jan 7, 2026)
      → Root cause: Field names were CASE-SENSITIVE and mismatched
-     → Template expects: Day, Date, Source, Exercise (mixed case)
-     → Workflow was sending: DAY, DATE, SOURCE, Body (wrong case)
+     → Template elements: DAY, DATE, SOURCE, Body
+     → CSV columns: Day, Date, Source, Exercise
 
-     CHANGES MADE:
-     1. Updated webhook_server.py to output correct field names
-     2. Updated workflow JSON (Node 5) with correct field names
-     3. Added all template fields: Day, Date, Source, Exercise,
-        Category, Block, Cues_Beginner, Cues_Intermediate, Cues_RX
+     CHANGES MADE (Jan 7, 2026):
+     1. Updated "Update the Canva Design" code node in workflow v1.1
+     2. Field mapping: Day→DAY, Date→DATE, Source→SOURCE, Exercise→Body
+     3. Node 5 JSON body already correct (DAY, DATE, SOURCE, Body)
 
      NEXT STEPS:
-     1. Restart webhook server to pick up changes
-     2. In n8n: Re-import workflow OR manually update Node 5 JSON body
-     3. Test Node 5 with the corrected field names
+     1. Re-import workflow v1.1 in n8n (or delete and import fresh)
+     2. Test Node 5 with the corrected field mapping
+     3. Run complete end-to-end test
 
 ============================================================
 
 TODO ❌
 -------
-[❌] Fix Canva API - Node 5 returns no output
+[❌] Re-import workflow v1.1 in n8n
 [❌] Test complete workflow end-to-end
 [❌] (Optional) Set up ngrok for external access
 
@@ -187,40 +186,41 @@ Meta Developers:     https://developers.facebook.com
 
 ============================================================
 
-NEXT STEP - NAME CANVA TEMPLATE ELEMENTS
------------------------------------------
+NEXT STEP - RE-IMPORT WORKFLOW AND TEST
+---------------------------------------
 
-Brand Template ID: EAG9R2WwCkE (already configured in n8n Node 5)
+Brand Template ID: EAG9R2WwCkE
 
-ISSUE: Canva returns "No matching fields in dataset" error.
-CAUSE: Bulk Create {{placeholders}} don't work with Autofill API.
-       The API needs ELEMENT NAMES, not placeholder text.
+Template elements and their CSV mappings:
+| Element | CSV Column | Example Value |
+|---------|------------|---------------|
+| DAY     | Day        | Monday        |
+| DATE    | Date       | 20250113      |
+| SOURCE  | Source     | Semana_1_Ciclo_7 |
+| Body    | Exercise   | Back Squat... |
 
-TO FIX:
+TO TEST:
 
-1. Open your Brand Template in Canva
+1. Open n8n: http://127.0.0.1:5678
 
-2. For each text element you want to auto-fill:
-   → Click the text element
-   → Open Layers panel (left sidebar) or Position panel (top right)
-   → Find "Element name" or "Layer name"
-   → Rename to match the API field name EXACTLY:
+2. Delete existing workflow (or import as new):
+   Workflows → ... menu → Delete
 
-   | Element Name | What it displays |
-   |--------------|------------------|
-   | date         | Monday date (e.g., 20250113) |
-   | source       | Week/Cycle label (e.g., Semana_1_Ciclo_7) |
+3. Import updated workflow:
+   Workflows → Import from File
+   Select: workflows/startraining_canva_workflow_v1.1.json
 
-3. Save the template (auto-saves)
+4. Re-connect credentials if needed:
+   - Google Drive account
+   - Canva OAuth2 (Unnamed credential)
+   - Gmail account
 
-4. If template ID changed, update n8n Node 5 body:
-   "brand_template_id": "NEW_ID_HERE"
+5. Start webhook server:
+   cd ~/GitHub/startraining-ai-pipeline
+   source .venv/bin/activate
+   PORT=5001 python webhook_server.py
 
-5. Test Node 5 in n8n again
-
-NOTE: The text content INSIDE the element doesn't matter.
-      Canva replaces the ENTIRE text with what the API sends.
-      Only the ELEMENT NAME must match.
+6. Test by uploading a .docx to Google Drive Raw/ folder
 
 ============================================================
 
