@@ -1,7 +1,7 @@
 ============================================================
 STARTRAINING N8N AUTOMATION - PROJECT STATUS
 ============================================================
-Date: January 7, 2026 (Updated)
+Date: January 11, 2026 (Updated)
 ============================================================
 
 GOAL
@@ -11,6 +11,19 @@ Automate the StarTraining workout publishing pipeline:
 2. Run Python pipeline (Agents A→B→C→D) to extract & format workout data
 3. Create Canva design from template using the CSV data
 4. Send the design image via WhatsApp
+
+============================================================
+
+WORKFLOW VERSION HISTORY
+-------------------------
+v1.0 - Initial workflow (basic pipeline integration)
+v1.1 - Added Canva API integration with field mapping fixes
+v1.2 - MAIN/STRENGTH folder separation implemented
+v1.3.7 - Multiple email bug FIXED (current stable version)
+       → Added "Aggregate Results" node to consolidate loop output
+       → Single email notification with links to both folders
+       → Filename format: YYYYMMDD_Day_TYPE.png
+       → All features working end-to-end
 
 ============================================================
 
@@ -79,51 +92,111 @@ COMPLETED ✅
 [✅] Canva Developer Integration created
 [✅] Canva Client ID and Client Secret obtained
 [✅] Canva OAuth connected (PKCE + 127.0.0.1 fix applied)
+[✅] Workflow v1.3.7 COMPLETED (Jan 11, 2026)
+     → MAIN and STRENGTH folder separation working
+     → Canva design generation with autofill working
+     → Multiple email bug FIXED (7 emails → 1 email)
+     → Filename format correct: YYYYMMDD_Day_TYPE.png
 
 ============================================================
 
 IN PROGRESS 🔄
 --------------
-[🔄] FIXED: Canva API field mapping corrected (Session Jan 7, 2026)
-     → Root cause: Field names were CASE-SENSITIVE and mismatched
-     → Template elements: DAY, DATE, SOURCE, Body
-     → CSV columns: Day, Date, Source, Exercise
-
-     CHANGES MADE (Jan 7, 2026):
-     1. Updated "Update the Canva Design" code node in workflow v1.1
-     2. Field mapping: Day→DAY, Date→DATE, Source→SOURCE, Exercise→Body
-     3. Node 5 JSON body already correct (DAY, DATE, SOURCE, Body)
-
-     NEXT STEPS:
-     1. Re-import workflow v1.1 in n8n (or delete and import fresh)
-     2. Test Node 5 with the corrected field mapping
-     3. Run complete end-to-end test
+[🔄] Cerrar workflow phase (Jan 11, 2026)
+     → Awaiting email address from Miguel for Google Drive sharing
+     → Awaiting direct access to RAW files folder for Miguel
+     → Email notification functionality working in v1.3.7
 
 ============================================================
 
 TODO ❌
 -------
-[❌] Re-import workflow v1.1 in n8n
-[❌] Test complete workflow end-to-end
+[❌] WhatsApp Business API integration
+[❌] AimHarder text generation integration
 [❌] (Optional) Set up ngrok for external access
 
 ============================================================
 
-WORKFLOW STRUCTURE (11 nodes)
------------------------------
-1. New File in Drive      → Google Drive trigger
-2. Extract Info           → Parse filename for date/label
-3. Run Python Pipeline    → Call webhook_server.py
-4. Pipeline Success?      → IF node checks status
-   ├─ True → Update the Canva Design → Loop Over Items
-   └─ False → Pipeline Failed (NoOp)
-5. Create Canva Design    → Canva Autofill API (BLOCKED - no output)
-6. Wait for Render        → 10 seconds
-7. Export Design          → Request PNG export
-8. Wait for Export        → 15 seconds
-9. Get Export URL         → Get download URL
-10. Collect Export URLs   → Prepare data for email
-11. Send Gmail            → Notification email (replaced WhatsApp)
+FUTURE DEVELOPMENT - SaaS/COMMERCIAL VIABILITY
+-----------------------------------------------
+
+STRATEGIC INITIATIVE: Input Document Alternatives
+--------------------------------------------------
+Goal: Evaluate alternatives to current Word document input (RAW folder)
+      to enable conversion into SaaS product or sellable service.
+
+CANDIDATE SOLUTIONS:
+
+1. Word Template
+   - Structured .docx template with predefined fields
+   - Evaluate: Ease of use, API accessibility, data validation,
+     scalability, cost, integration complexity
+
+2. Notion Database
+   - Web-based, collaborative, API-accessible
+   - Evaluate: Ease of use, API accessibility, data validation,
+     scalability, cost, integration complexity
+
+3. Excel/Google Sheets
+   - Spreadsheet format, easy data validation, API available
+   - Evaluate: Ease of use, API accessibility, data validation,
+     scalability, cost, integration complexity
+
+4. Custom Web Form
+   - Direct input via web interface
+   - Evaluate: Ease of use, API accessibility, data validation,
+     scalability, cost, integration complexity
+
+5. Mobile App Input
+   - Native app for coaches to input workout data
+   - Evaluate: Ease of use, API accessibility, data validation,
+     scalability, cost, integration complexity
+
+6. Airtable
+   - Database with forms, API, and automations
+   - Evaluate: Ease of use, API accessibility, data validation,
+     scalability, cost, integration complexity
+
+7. Typeform/Google Forms
+   - Simple form-based input with integrations
+   - Evaluate: Ease of use, API accessibility, data validation,
+     scalability, cost, integration complexity
+
+EVALUATION CRITERIA:
+1. Ease of use for end users (coaches)
+2. API accessibility for automation
+3. Data validation capabilities
+4. Multi-user/multi-gym scalability
+5. Cost structure for SaaS model
+6. Integration complexity with current pipeline
+
+STRATEGIC CONTEXT:
+Transform workflow from personal automation → commercial product
+serving multiple gyms/coaches simultaneously.
+
+============================================================
+
+WORKFLOW STRUCTURE v1.3.7 (Working)
+------------------------------------
+1. Google Drive Trigger        → Detects new .docx in Raw/ folder
+2. Code Node                   → Extracts date/label from filename
+3. HTTP Request                → Calls webhook at http://host.docker.internal:5001/run-single
+4. IF Node                     → Checks if pipeline succeeded
+5. Create Folder (MAIN)        → Creates MAIN output folder in Google Drive
+6. Create Folder (STRENGTH)    → Creates STRENGTH output folder in Google Drive
+7. Loop Over Items             → SplitInBatches processes each day's workout (7 items)
+8. Prepare Canva Request       → Builds autofill request body
+9. Create Canva Design         → POST to /rest/v1/autofills
+10. Wait for Render            → 10 seconds
+11. Get Autofill Result        → Polls job to get design ID
+12. Export Design              → POST to /rest/v1/exports
+13. Wait for Export            → 15 seconds
+14. Get Export URL             → Gets download URLs from job.urls[]
+15. Download PNG               → Downloads exported image
+16. Route to Folder            → Routes based on Type field (MAIN/STRENGTH)
+17. Upload to Drive            → Saves PNG to correct folder
+18. Aggregate Results          → Combines 7 items into 1 summary (FIX for email bug)
+19. Send Gmail                 → Single notification email with both folder links
 
 ============================================================
 
@@ -227,9 +300,39 @@ TO TEST:
 BUG FIXES APPLIED
 -----------------
 
-agentB.py - Fixed Google Drive sync timeout
-  - Problem: Writing CSV row-by-row caused timeout with Google Drive sync
-  - Solution: Buffer all rows in memory, write once at end
-  - File: ~/GitHub/startraining-ai-pipeline/agents/agentB.py
+1. agentB.py - Fixed Google Drive sync timeout (Jan 7, 2026)
+   - Problem: Writing CSV row-by-row caused timeout with Google Drive sync
+   - Solution: Buffer all rows in memory, write once at end
+   - File: ~/GitHub/startraining-ai-pipeline/agents/agentB.py
+
+2. Multiple Email Bug - FIXED (Jan 11, 2026)
+   - Problem: Workflow sent 7 emails instead of 1 after processing all workouts
+   - Root Cause: SplitInBatches "Done" output passes ALL processed items (7) to next node
+     → Gmail node received 7 items and executed once per item = 7 emails
+   - Failed Analysis: Codex and Gemini AI agents initially provided incorrect analysis
+     → Their reports have been updated with corrections
+   - Solution: Added "Aggregate Results" Code node between Loop Done and Gmail
+     → Flow: Loop Done (7 items) → Aggregate Results (1 item) → Send Email (1 email)
+   - Implementation:
+     ```javascript
+     // Aggregate Results node
+     const allItems = $input.all();
+     const mainFolderId = allItems[0].json.mainFolderId;
+     const strengthFolderId = allItems[0].json.strengthFolderId;
+     const uploadedFiles = allItems.map(item => ({
+       name: item.json.fileName,
+       type: item.json.type
+     }));
+
+     return {
+       json: {
+         mainFolderId,
+         strengthFolderId,
+         uploadedFiles,
+         totalFiles: uploadedFiles.length
+       }
+     };
+     ```
+   - Status: VERIFIED WORKING in v1.3.7
 
 ============================================================

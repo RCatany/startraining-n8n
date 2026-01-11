@@ -13,7 +13,8 @@ startraining-n8n/
 ├── docker-compose.yml           # n8n container configuration
 ├── workflows/                   # Exported n8n workflow JSON files
 │   ├── startraining_canva_workflow_v1.json
-│   └── startraining_canva_workflow_v1.1.json  # Current active workflow
+│   ├── startraining_canva_workflow_v1.1.json
+│   └── StarTraining Pipeline v1.3.json  # Current active workflow (v1.3.7)
 ├── Instructions_n8n/            # Setup guides
 │   ├── startraining_quickstart.md
 │   ├── startraining_n8n_complete_guide.md
@@ -101,7 +102,7 @@ curl http://localhost:5001/health
 # Import: Workflows → Import from File
 ```
 
-## Current Status (January 7, 2026)
+## Current Status (January 11, 2026)
 
 ### Completed
 - n8n running locally with Docker (v2.1.4)
@@ -115,14 +116,22 @@ curl http://localhost:5001/health
 - Canva API endpoints fixed (autofill polling, export URL structure)
 - Workflow v1.2 completed with MAIN/STRENGTH folder separation
 - Python webhook updated to include Type field in canva_data
+- **Workflow v1.3.7**: Fixed multiple emails bug with Aggregate Results node
 
-### Workflow v1.2 Features
+### Workflow v1.3.7 Features (Current)
 - Automatic trigger when new .docx uploaded to Google Drive Raw folder
 - Creates TWO output folders: MAIN and STRENGTH (dynamic single node)
 - Routes designs to correct folder based on Type field
 - Filename format: `YYYYMMDD_Day_TYPE.png` (e.g., `20260107_Lunes_MAIN.png`)
+- **Aggregate Results node**: Consolidates loop output to single item before email
 - Sends ONE email with links to both folders after all uploads complete
+- Email subject format: `[STARTRAINING] Workout Week: mondayDate_Semana_X_Ciclo_Y`
 - Webhook returns `canva_data` with Type field, plus `canva_data_main` and `canva_data_strength` arrays
+
+### v1.3.7 Fix Details (Multiple Emails Bug)
+- **Root cause**: splitInBatches "Done" output sends all processed items to next node, causing Gmail to fire once per item
+- **Solution**: Added "Aggregate Results" Code node that consolidates all items into ONE output
+- **Flow**: `Loop Over Items1 → Aggregate Results → 12. Send Email`
 
 ### Critical Notes
 - **Canva API Field Names**: CASE-SENSITIVE - must match template dataset field names exactly
@@ -170,4 +179,4 @@ See [oauth_credentials_setup_guide.md](Instructions_n8n/oauth_credentials_setup_
 - **Export**: `POST https://api.canva.com/rest/v1/exports` (body: `{"design_id": "...", "format": {"type": "png"}}`)
 - **Get Export**: `GET https://api.canva.com/rest/v1/exports/{job_id}` (returns job.urls[])
 
-<!-- Synchronized: 2026-01-07 -->
+<!-- Synchronized: 2026-01-11 -->

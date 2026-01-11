@@ -1,6 +1,10 @@
 # Workflow v1.3 Email Issue Report
 
-> **UPDATE (2026-01-11):** This analysis was **INCORRECT**. The proposed fix (swapping Loop Over Items1 outputs) broke the workflow entirely - the loop stopped triggering and no Canva designs were created. The n8n SplitInBatches node outputs are: Output 0 = Done (fires once), Output 1 = Loop (fires per item). The original wiring was correct. The root cause of multiple emails remains unresolved.
+> **UPDATE (2026-01-11):** This analysis was **INCORRECT**. The proposed fix (swapping outputs) broke the workflow entirely.
+>
+> **ACTUAL ROOT CAUSE (v1.3.7):** The SplitInBatches "Done" output passes ALL processed items (7) to the next node, not a single completion signal. The Gmail node executed once per item = 7 emails.
+>
+> **ACTUAL FIX:** Added "Aggregate Results" Code node between Loop Done output and Email. It receives 7 items and returns 1 item with summary data. Flow: `Loop Done (7 items) → Aggregate Results (1 item) → Send Email (1 email)`
 
 ## Findings
 - `workflows/StarTraining Pipeline v1.3.json:560-574` — `Loop Over Items1` (SplitInBatches) has two outputs: first = per-item/batch, second = “no items left”.

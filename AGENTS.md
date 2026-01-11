@@ -35,7 +35,7 @@
 - **File Pattern:** `*.docx`
 - **Poll Interval:** Every minute
 
-### Agent Processing Chain (Workflow v1.2)
+### Agent Processing Chain (Workflow v1.3.7)
 
 ```
 Agent 1: File Detector (Google Drive Trigger)
@@ -130,14 +130,16 @@ Agent 16: File Uploader (Upload file)
 ├─ Filename: YYYYMMDD_Day_TYPE.png
 └─ Next: Agent 17 (or loop back)
 
-Agent 17: Data Collector (Collect Results)
-├─ Input: All uploaded file data
-├─ Action: Aggregate after loop completes
+Agent 17: Results Aggregator (Aggregate Results)
+├─ Input: All items from splitInBatches "Done" output
+├─ Action: Consolidate into ONE item (fixes multiple emails bug)
+├─ Output: { mondayDate, sourceLabel, mainFolderId, strengthFolderId, totalDesigns }
 └─ Next: Agent 18
 
 Agent 18: Notification Sender (Gmail)
-├─ Input: Folder links, metadata
+├─ Input: Single aggregated item
 ├─ Action: Send ONE email with links to both folders
+├─ Subject: [STARTRAINING] Workout Week: mondayDate_Semana_X_Ciclo_Y
 └─ End: Workflow complete
 ```
 
@@ -308,7 +310,7 @@ docker compose logs -f n8n
 # (visible in terminal where server is running)
 ```
 
-## Agent Decision Tree (Workflow v1.2)
+## Agent Decision Tree (Workflow v1.3.7)
 
 ```
 New .docx uploaded to Google Drive
@@ -353,9 +355,16 @@ FOR EACH item in canva_data:
   ↓
   → Loop back for next item
 
-After ALL items processed:
+After ALL items processed (splitInBatches "Done" output):
+  ↓
+Aggregate Results (CRITICAL - fixes multiple emails bug)
+  ├─ Input: All N items from loop
+  ├─ Output: ONE consolidated item
+  └─ Why: splitInBatches sends all items to "Done" output,
+          Gmail would fire N times without aggregation
   ↓
 Send ONE Gmail notification
+  ├─ Subject: [STARTRAINING] Workout Week: mondayDate_Semana_X_Ciclo_Y
   ├─ Contains links to MAIN folder
   └─ Contains links to STRENGTH folder
   ↓
@@ -401,4 +410,4 @@ End: Workflow complete
 
 **Integration Point:** HTTP webhook at /run-single endpoint
 
-<!-- Synchronized: 2026-01-07 -->
+<!-- Synchronized: 2026-01-11 -->

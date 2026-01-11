@@ -27,7 +27,8 @@ startraining-n8n/
 ├── docker-compose.yml           # n8n container config
 ├── workflows/                   # n8n workflow JSON exports
 │   ├── startraining_canva_workflow_v1.1.json
-│   └── startraining_canva_workflow_v1.2.json  # Current version
+│   ├── startraining_canva_workflow_v1.2.json
+│   └── StarTraining Pipeline v1.3.json  # Current version (v1.3.7)
 ├── Instructions_n8n/            # Setup guides
 │   ├── startraining_quickstart.md
 │   └── startraining_n8n_complete_guide.md
@@ -121,7 +122,7 @@ curl http://localhost:5001/health
 - **Console:** developers.facebook.com
 - **Scope:** whatsapp_business_messaging
 
-## Workflow Structure (v1.2 - 18 Nodes)
+## Workflow Structure (v1.3.7 - 19 Nodes)
 
 1. **Google Drive Trigger** - Watch for new .docx files
 2. **Code Node** - Extract date & label from filename
@@ -130,17 +131,19 @@ curl http://localhost:5001/health
 5. **Prepare Folders** - Generate MAIN/STRENGTH folder items
 6. **Create folder** - Creates folder in Google Drive (runs twice)
 7. **Collect Folder IDs** - Map folder names to IDs
-8. **Loop Over canva_data** - Iterate through workout items
-9. **Canva Autofill** - Create design from template
-10. **Wait** - 10 seconds for autofill completion
-11. **Get Autofill Result** - Poll for design ID
-12. **Export Design** - Request PNG export
-13. **Wait** - 15 seconds for export
-14. **Get Export URL** - Retrieve download URL
-15. **Download Image** - Fetch PNG from Canva
-16. **Upload file** - Upload to correct folder (MAIN or STRENGTH) based on Type
-17. **Collect Results** - Aggregate data after loop
-18. **Send Gmail** - ONE email with links to both folders
+8. **Update Canva Design** - Map canva_data fields
+9. **Loop Over Items** - Iterate through workout items (splitInBatches)
+10. **Prepare Canva Request** - Build autofill request body
+11. **Canva Autofill** - Create design from template
+12. **Wait** - 10 seconds for autofill completion
+13. **Get Autofill Result** - Poll for design ID
+14. **Export Design** - Request PNG export
+15. **Wait** - 15 seconds for export
+16. **Get Export URL** - Retrieve download URL
+17. **Download Image** - Fetch PNG from Canva
+18. **Upload file** - Upload to correct folder (MAIN or STRENGTH) based on Type
+19. **Aggregate Results** - Consolidates all items into ONE output (fixes multiple emails bug)
+20. **Send Gmail** - ONE email with links to both folders
 
 ## Important Guidelines
 
@@ -162,7 +165,7 @@ curl http://localhost:5001/health
 # Import: Workflows → Import from File
 ```
 
-## Current Status (as of 2026-01-07)
+## Current Status (as of 2026-01-11)
 
 ### Completed
 - n8n running locally with Docker (v2.1.4)
@@ -173,13 +176,21 @@ curl http://localhost:5001/health
 - Pipeline test successful (agentB.py timeout fixed)
 - Canva API field names corrected (case-sensitive)
 - Workflow v1.2 tested end-to-end successfully
+- **Workflow v1.3.7**: Fixed multiple emails bug with Aggregate Results node
 
-### Workflow v1.2 Features
+### Workflow v1.3.7 Features (Current)
 - Automatic trigger when new .docx uploaded to Google Drive Raw folder
 - Creates TWO output folders: MAIN and STRENGTH (dynamic single node)
 - Routes designs to correct folder based on Type field
 - Filename format: `YYYYMMDD_Day_TYPE.png` (e.g., `20260107_Lunes_MAIN.png`)
+- **Aggregate Results node**: Consolidates loop output to single item before email
 - Sends ONE email with links to both folders after all uploads complete
+- Email subject format: `[STARTRAINING] Workout Week: mondayDate_Semana_X_Ciclo_Y`
+
+### v1.3.7 Fix Details (Multiple Emails Bug)
+- **Root cause**: splitInBatches "Done" output sends all processed items to next node, causing Gmail to fire once per item
+- **Solution**: Added "Aggregate Results" Code node that consolidates all items into ONE output
+- **Flow**: `Loop Over Items1 → Aggregate Results → 12. Send Email`
 
 ### Canva API Endpoints (Correct)
 - Autofill: `POST /rest/v1/autofills`
@@ -215,4 +226,4 @@ curl http://localhost:5001/health
 - Canva API Docs: canva.dev/docs
 - WhatsApp API: developers.facebook.com/docs/whatsapp
 
-<!-- Synchronized: 2026-01-07 -->
+<!-- Synchronized: 2026-01-11 -->
