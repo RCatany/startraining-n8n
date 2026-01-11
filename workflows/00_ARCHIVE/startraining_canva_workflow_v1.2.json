@@ -33,11 +33,11 @@
           "name": "Google Drive account"
         }
       },
-      "notes": "Watches your Raw folder for new .docx files"
+      "notes": "Watches your Raw folder for new .docx or .odt files"
     },
     {
       "parameters": {
-        "jsCode": "// Extract monday_date and source_label from filename\n// Expected format: 20250908_semana 1 CICLO 7 startrainingbox.docx\n\nconst fileName = $input.first().json.name;\nconst name = fileName.replace('.docx', '').replace('.odt', '');\n\n// Extract date (first 8 digits)\nconst dateMatch = name.match(/^(\\d{8})_(.+)$/);\nif (!dateMatch) {\n  throw new Error(`Invalid filename format: ${fileName}. Expected: YYYYMMDD_semana X CICLO Y...`);\n}\n\nconst mondayDate = dateMatch[1];\nconst rest = dateMatch[2];\n\n// Extract semana and ciclo\nconst labelMatch = rest.match(/[sS]emana\\s+(\\d+)\\s+[cC]ICLO\\s+(\\d+)/i);\nlet sourceLabel;\n\nif (labelMatch) {\n  sourceLabel = `Semana_${labelMatch[1]}_Ciclo_${labelMatch[2]}`;\n} else {\n  sourceLabel = rest.replace(/\\s+/g, '_');\n}\n\nreturn [{\n  json: {\n    fileName: fileName,\n    fileId: $input.first().json.id,\n    mondayDate: mondayDate,\n    sourceLabel: sourceLabel\n  }\n}];"
+        "jsCode": "// Extract filename and pass to Python webhook\n// Supports both formats:\n// 1. With date prefix: 20250908_semana 1 CICLO 7 startrainingbox.docx\n// 2. Without date prefix: semana 1 CICLO 9 startrainingbox.odt\n// The Python webhook will handle date extraction from document content if needed\n\nconst fileName = $input.first().json.name;\nconst name = fileName.replace('.docx', '').replace('.odt', '');\n\n// Try to extract date (first 8 digits) if present\nconst dateMatch = name.match(/^(\\d{8})_(.+)$/);\nlet mondayDate = null;\nlet rest = name;\nlet sourceLabel = null;\n\nif (dateMatch) {\n  // Format 1: Has date prefix\n  mondayDate = dateMatch[1];\n  rest = dateMatch[2];\n}\n\n// Extract semana and ciclo\nconst labelMatch = rest.match(/[sS]emana\\s+(\\d+)\\s+[cC]ICLO\\s+(\\d+)/i);\n\nif (labelMatch) {\n  sourceLabel = `Semana_${labelMatch[1]}_Ciclo_${labelMatch[2]}`;\n} else {\n  sourceLabel = rest.replace(/\\s+/g, '_');\n}\n\nreturn [{\n  json: {\n    fileName: fileName,\n    fileId: $input.first().json.id,\n    mondayDate: mondayDate,\n    sourceLabel: sourceLabel,\n    needsConversion: !dateMatch  // Flag for logging\n  }\n}];"
       },
       "id": "6653f414-4091-49a5-9ead-14f8d6c61b62",
       "name": "2. Extract Info from Filename",
@@ -47,7 +47,7 @@
         -416,
         -160
       ],
-      "notes": "Parses the filename to get date and week label"
+      "notes": "Parses filename; date prefix optional (Python extracts from content if missing)"
     },
     {
       "parameters": {
@@ -128,6 +128,22 @@
     },
     {
       "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        480,
+        -288
+      ],
+      "id": "loop-over-folders",
+      "name": "Loop Over Folders",
+      "notes": "Creates folders one by one, continues after both are done"
+    },
+    {
+      "parameters": {
         "resource": "folder",
         "name": "={{ $json.folderName }}",
         "driveId": {
@@ -147,7 +163,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        480,
+        704,
         -288
       ],
       "id": "023e3d87-a4ac-45db-bc13-b2566f5c9064",
@@ -158,7 +174,7 @@
           "name": "Google Drive account"
         }
       },
-      "notes": "Creates both MAIN and STRENGTH folders (runs twice)"
+      "notes": "Creates MAIN or STRENGTH folder"
     },
     {
       "parameters": {
@@ -167,11 +183,12 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        704,
+        928,
         -288
       ],
       "id": "collect-folder-ids",
-      "name": "Collect Folder IDs"
+      "name": "Collect Folder IDs",
+      "notes": "Runs ONCE after both folders are created"
     },
     {
       "parameters": {
@@ -180,7 +197,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        928,
+        1152,
         -288
       ],
       "id": "16f6191d-31b7-4352-99f6-2efd05ee491c",
@@ -195,7 +212,7 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        1152,
+        1376,
         -288
       ],
       "id": "080094dc-cc05-40a9-b84e-3d989bc00d54",
@@ -208,7 +225,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1376,
+        1600,
         -288
       ],
       "id": "2d538639-8060-457b-a5b3-e03ed763341b",
@@ -239,7 +256,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1600,
+        1824,
         -288
       ],
       "credentials": {
@@ -259,7 +276,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        1824,
+        2048,
         -288
       ],
       "webhookId": "c6a5fd0c-e85c-4529-9fb0-c48ec0061ff4",
@@ -275,7 +292,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        2048,
+        2272,
         -288
       ],
       "id": "13669d55-43e7-4f2c-9532-69e4e670a974",
@@ -304,7 +321,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2272,
+        2496,
         -288
       ],
       "credentials": {
@@ -324,7 +341,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        2496,
+        2720,
         -288
       ],
       "webhookId": "d97b92de-abee-4600-80a7-b4260753fb9f",
@@ -342,7 +359,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2720,
+        2944,
         -288
       ],
       "credentials": {
@@ -367,7 +384,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        2944,
+        3168,
         -288
       ],
       "id": "3b59d94b-24d7-43ac-8f8c-360c5745c68c",
@@ -393,7 +410,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        3168,
+        3392,
         -288
       ],
       "id": "49010c28-5587-4858-95ee-d23069dc6432",
@@ -417,7 +434,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        1376,
+        1600,
         -480
       ],
       "id": "1b1487a6-f902-45ee-9cf0-d5d6d79e3f57",
@@ -515,6 +532,24 @@
       "main": [
         [
           {
+            "node": "Loop Over Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Folders": {
+      "main": [
+        [
+          {
+            "node": "Collect Folder IDs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Create folder",
             "type": "main",
             "index": 0
@@ -526,7 +561,7 @@
       "main": [
         [
           {
-            "node": "Collect Folder IDs",
+            "node": "Loop Over Folders",
             "type": "main",
             "index": 0
           }
@@ -678,7 +713,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "v1.2.0",
+  "versionId": "v1.2.1",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "33161149248810f836dc45666e43ca5ad11f5db7a2b9eeb37d31e0cce4e80d64"
